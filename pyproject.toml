@@ -3,12 +3,16 @@ name = "factures-ia"
 version = "0.1.0"
 description = "De la facture scannée à l'agent IA : S3 → OCR → bronze → silver → entrepôt → MCP → agent"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 dependencies = [
     "boto3>=1.44.9",
     "openai>=3.57.0",
+    "pymupdf>=2.1",
     "python-dotenv",
 ]
+
+[project.scripts]
+factures = "factures.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
