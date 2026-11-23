@@ -18,7 +18,7 @@ from pathlib import Path
 from mcp import Client
 
 from factures import config
-from factures.agent import Agent, Display, load_profile, load_profiles, mcp_server_params
+from factures.agent import Agent, Display, load_profile, load_profiles, mcp_server_params, numbers_in
 from factures.warehouse import connect
 
 
@@ -49,6 +49,15 @@ QUESTIONS = [
     Question("Y a-t-il des factures avec une anomalie détectée ? Donne leur numéro.",
              "SELECT string_agg(invoice_number, ', ') FROM silver.invoices WHERE quality_status = 'signalee'",
              new_conversation=True),
+    # Indicateurs de la couche gold
+    Question("Combien devons-nous encore payer au fournisseur Chevalier, et combien de cette somme est déjà échue ?",
+             "SELECT outstanding_ttc, overdue_ttc FROM gold.supplier_balance WHERE supplier_name = 'Chevalier'",
+             new_conversation=True),
+    Question("Quel mois de 2026 a eu la plus grosse dépense TTC, et de combien ?",
+             # le mois peut être écrit « mai 2026 » ou « 2026-05 » : alternatives séparées par |
+             "SELECT ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre',"
+             "'novembre','décembre'][month(strptime(month, '%Y-%m'))] || '|' || month, total_ttc "
+             "FROM gold.monthly_spend WHERE month LIKE '2026-%' ORDER BY total_ttc DESC LIMIT 1", new_conversation=True),
     # Questions sans outil dédié : il faut découvrir le schéma et écrire du SQL (run_sql).
     Question("Quel article (désignation) a été commandé en plus grande quantité au total, et combien d'unités ?",
              "SELECT description, sum(quantity)::INT q FROM silver.invoice_lines GROUP BY 1 ORDER BY q DESC LIMIT 1",
@@ -59,30 +68,11 @@ QUESTIONS = [
 ]
 
 
-def numbers_in(text: str) -> set[Decimal]:
-    """Tous les nombres d'un texte en français ou en anglais : '106 886,43 €', '106886.43', '12'."""
-    found = set()
-    for m in re.finditer(r"\d[\d\s  .,]*\d|\d", text):
-        s = re.sub(r"[\s  ]", "", m.group())
-        if "," in s and "." in s:
-            s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
-        elif "," in s:
-            if len(s.split(",")[-1]) == 3:   # « 229,000 » : milliers ou décimales ? on garde les deux lectures
-                for cand in (s.replace(",", ""), s.replace(",", ".")):
-                    found.add(Decimal(cand).normalize())
-                continue
-            s = s.replace(",", ".")
-        try:
-            found.add(Decimal(s.strip(".")).normalize())
-        except InvalidOperation:
-            pass
-    return found
-
-
 def contains(answer: str, expected) -> bool:
     if isinstance(expected, (int, float, Decimal)):
         return Decimal(str(expected)).normalize() in numbers_in(answer)  # str() : pas d'artefact binaire du float
-    return all(part.strip().lower() in answer.lower() for part in str(expected).split(","))
+    low = answer.lower()
+    return all(any(alt.strip().lower() in low for alt in part.split("|")) for part in str(expected).split(","))
 
 
 def expected_values(q: Question) -> list:
@@ -105,7 +95,8 @@ async def run_profile(name: str) -> list[dict]:
             rows.append({
                 "profile": name, "question": q.text, "expected": exp, "answer": turn.answer, "exact": all(ok),
                 "tools": [c.name + ("✗" if c.is_error else "") for c in turn.tool_calls],
-                "seconds": turn.seconds, "stopped": turn.stopped,
+                "seconds": turn.seconds, "stopped": turn.stopped, "corrected": turn.corrected,
+                "ungrounded": turn.ungrounded,
             })
             print(f"  [{name}] {'✓' if all(ok) else '✗'} {turn.seconds:5.1f}s {','.join(rows[-1]['tools']) or '-':<40} {q.text[:60]}")
     return rows
@@ -122,12 +113,16 @@ def report(results: dict[str, list[dict]]) -> str:
         cells = []
         for n in names:
             r = results[n][i]
-            cells.append(f"{'✅' if r['exact'] else '❌'} {r['seconds']:.0f} s · {' → '.join(r['tools']) or 'aucun outil'}")
+            note = " · 🔁 corrigé" if r.get("corrected") else (" · ⚠ non sourcé" if r.get("ungrounded") else "")
+            cells.append(f"{'✅' if r['exact'] else '❌'} {r['seconds']:.0f} s · {' → '.join(r['tools']) or 'aucun outil'}{note}")
         lines.append(f"| {q.text} | {exp} | " + " | ".join(cells) + " |")
     lines.append("| **Score** | | " + " | ".join(
         f"**{sum(r['exact'] for r in results[n])}/{len(QUESTIONS)}** · {sum(r['seconds'] for r in results[n]):.0f} s"
         for n in names) + " |")
-    lines += ["", "✗ après un nom d'outil = appel en erreur (le LLM a dû se corriger).", "", "## Réponses complètes", ""]
+    lines += ["", "✗ après un nom d'outil = appel en erreur (le LLM a dû se corriger). 🔁 corrigé = la première réponse "
+              "contenait un chiffre absent des résultats d'outils, et la vérification automatique l'a fait corriger. "
+              "⚠ non sourcé = chiffre toujours introuvable après correction (signalé à l'utilisateur).",
+              "", "## Réponses complètes", ""]
     for n in names:
         lines.append(f"### {n}")
         for r in results[n]:

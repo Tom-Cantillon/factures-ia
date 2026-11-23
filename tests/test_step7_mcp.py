@@ -57,13 +57,17 @@ def test_every_tool(data_dir):
         ("list_invoices", {"status": "En retard"}),
         ("invoice_totals", {}),
         ("invoice_totals", {"group_by": "status"}),
+        ("invoice_totals", {"group_by": "supplier_name"}),   # nom de colonne accepté comme synonyme
         ("get_invoice", {"invoice_number": "A-2"}),
         ("describe_schema", {}),
         ("run_sql", {"query": "SELECT count(*) AS n FROM silver.invoice_lines"}),
     ])
-    assert set(names) == {"list_invoices", "invoice_totals", "get_invoice", "describe_schema", "run_sql"}
+    assert set(names) == {"list_invoices", "invoice_totals", "get_invoice", "monthly_spend", "supplier_balance",
+                          "describe_schema", "run_sql"}
     assert all(not err for err, _ in res)
-    listed, late, totals, by_status, detail, schema, sql = (r for _, r in res)
+    listed, late, totals, by_status, by_supplier, detail, schema, sql = (r for _, r in res)
+    assert by_supplier["rows"] == [{"supplier": "Aubry", "invoice_count": 3, "total_ht": "3601.50",
+                                    "total_tva": "720.30", "total_ttc": "102881.19"}]
 
     assert [i["invoice_number"] for i in listed["invoices"]] == ["A-1", "A-2", "B-7"]
     assert late["total_matching"] == 1 and late["invoices"][0]["invoice_number"] == "B-7"

@@ -123,10 +123,19 @@ def cmd_silver(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_gold(args: argparse.Namespace) -> int:
+    from factures.gold import build
+
+    counts = build()
+    print("gold : " + ", ".join(f"{n} ({c} ligne(s))" for n, c in counts.items()) + f" → {config.DATA_DIR / 'gold'}")
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     cmd_fetch(args)
     cmd_bronze(args)
     cmd_silver(args)
+    cmd_gold(args)
     return cmd_warehouse(args)
 
 
@@ -252,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, func, help_ in (
         ("bronze", cmd_bronze, "Extrait le texte des PDF de data/landing vers la couche bronze (incrémental)"),
-        ("run", cmd_run, "fetch + bronze + silver + warehouse"),
+        ("run", cmd_run, "fetch + bronze + silver + gold + warehouse"),
     ):
         p = sub.add_parser(name, help=help_)
         p.add_argument("--limit", type=int, help="Traiter au plus N nouveaux documents")
@@ -279,6 +288,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--csv", action="store_true")
     p.add_argument("--max-rows", type=int, default=50)
     p.set_defaults(func=cmd_sql)
+
+    p = sub.add_parser("gold", help="Recalcule la couche gold (dépense mensuelle, encours fournisseurs, balance âgée)")
+    p.set_defaults(func=cmd_gold)
 
     p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
     p.set_defaults(func=cmd_status)

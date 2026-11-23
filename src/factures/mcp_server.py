@@ -1,6 +1,6 @@
 """Étape 7 : serveur MCP — donne à une IA un accès en lecture seule à l'entrepôt des factures.
 
-Outils : list_invoices, invoice_totals, get_invoice, describe_schema, run_sql.
+Outils : list_invoices, invoice_totals, get_invoice, monthly_spend, supplier_balance, describe_schema, run_sql.
 
 Principes :
 - **Transparence** : chaque réponse contient `sql`, la liste des requêtes réellement exécutées avec
@@ -11,7 +11,7 @@ Principes :
 - **Lecture seule, en profondeur** pour le SQL libre :
   1. une seule instruction, de type SELECT (analyse par DuckDB lui-même, pas par regex) ;
   2. connexion neuve et jetable à chaque appel : un éventuel effet de bord meurt avec elle ;
-  3. bac à sable DuckDB : accès fichiers limité aux dossiers bronze/silver, pas d'extension, pas
+  3. bac à sable DuckDB : accès fichiers limité aux dossiers bronze/silver/gold, pas d'extension, pas
      d'ATTACH, configuration verrouillée (`lock_configuration`) ;
   4. plafond de lignes et délai maximal d'exécution.
 - **Erreurs exploitables** : une erreur renvoie un message clair *et* un indice (colonnes
@@ -45,6 +45,9 @@ GROUPABLE = {
     "quality_status": "quality_status", "payment_method": "payment_method",
     "year": "year(issue_date)", "month": "strftime(issue_date, '%Y-%m')",
 }
+# Les LLM réutilisent volontiers le nom de colonne vu dans les résultats (supplier_name) au lieu du nom de
+# dimension (supplier) : on accepte les deux plutôt que de leur faire perdre un aller-retour.
+GROUP_ALIASES = {"supplier_name": "supplier", "client_name": "client"}
 LIST_COLUMNS = ["invoice_number", "issue_date", "due_date", "supplier_name", "client_name", "category", "status",
                 "total_ht", "total_tva", "total_ttc", "quality_status"]
 MAX_SQL_ROWS = 500
@@ -56,7 +59,7 @@ server = MCPServer(
     name="factures",
     instructions=(
         "Accès en lecture seule aux factures fournisseurs de l'entreprise (couche silver, montants en euros). "
-        "Préférez list_invoices / invoice_totals / get_invoice ; utilisez describe_schema puis run_sql seulement "
+        "Préférez list_invoices / invoice_totals / get_invoice, et monthly_spend / supplier_balance pour les dépenses mensuelles et les encours ; utilisez describe_schema puis run_sql seulement "
         "pour une question que ces outils ne couvrent pas. Chaque réponse contient le SQL exécuté : citez les "
         "chiffres tels que renvoyés, sans les recalculer ni les inventer. Les factures signalées "
         "(quality_status = 'signalee') ont une anomalie détectée : mentionnez-la si elle concerne la réponse."
@@ -70,7 +73,7 @@ def _db() -> duckdb.DuckDBPyConnection:
     """Connexion neuve, en mémoire, bac à sable verrouillé."""
     con = connect(config.DATA_DIR)
     data = config.DATA_DIR.resolve()
-    dirs = ", ".join(f"'{(data / d).as_posix()}/'" for d in ("bronze", "silver"))
+    dirs = ", ".join(f"'{(data / d).as_posix()}/'" for d in ("bronze", "silver", "gold"))
     con.execute(f"SET allowed_directories = [{dirs}]")
     con.execute("SET enable_external_access = false")
     con.execute("SET autoinstall_known_extensions = false")
@@ -204,22 +207,30 @@ def list_invoices(
 def invoice_totals(
     supplier: Supplier = None, client: Client = None, status: Status = None, category: Category = None,
     quality_status: Quality = None, year: Year = None, date_from: DateFrom = None, date_to: DateTo = None,
-    group_by: Annotated[Literal["status", "category", "supplier", "client", "quality_status", "payment_method",
-                                "year", "month"] | None,
-                        Field(description="Regrouper les totaux par cette dimension (optionnel)")] = None,
+    group_by: Annotated[Literal["status", "category", "supplier", "supplier_name", "client", "client_name",
+                                "quality_status", "payment_method", "year", "month"] | None,
+                        Field(description="Regrouper les totaux par cette dimension (optionnel) : statut, catégorie, "
+                                          "fournisseur (supplier), client, qualité, moyen de paiement, année ou mois")] = None,
 ) -> dict:
     """Nombre de factures et sommes des montants HT, TVA et TTC (en euros), avec les mêmes filtres que list_invoices.
 
     À utiliser pour toute question de comptage ou de montant : « combien de factures… »,
     « quel est le montant TTC des factures en retard en 2025 ? », « total par fournisseur ».
+    Avec group_by, les lignes sont triées du plus gros montant TTC au plus petit (par date pour year / month) :
+    pour « le plus / le moins », prenez la première / dernière ligne.
     Les montants renvoyés sont exacts (calculés par la base) : citez-les tels quels.
     """
     where, params = _where(supplier, client, status, category, quality_status, year, date_from, date_to)
+    group_by = GROUP_ALIASES.get(group_by, group_by)
     dim = GROUPABLE[group_by] if group_by else None
     select = f"{dim} AS {group_by}, " if dim else ""
+    # Tri fait par la base, pas par le LLM : les dimensions temporelles dans l'ordre chronologique, les autres
+    # du plus gros montant au plus petit. « Le fournisseur qui… le plus » est alors toujours la 1re ligne :
+    # un LLM qui cherche lui-même le maximum dans un tableau se trompe (observé au banc d'essai).
+    order = dim if group_by in ("year", "month") else "total_ttc DESC"
     sql = (f"SELECT {select}count(*) AS invoice_count, sum(total_ht) AS total_ht, sum(total_tva) AS total_tva, "
            f"sum(total_ttc) AS total_ttc FROM silver.invoices {where}"
-           + (f" GROUP BY {dim} ORDER BY {dim}" if dim else ""))
+           + (f" GROUP BY {dim} ORDER BY {order}" if dim else ""))
     con, executed = _db(), []
     cols, rows = _run(con, executed, sql, params)
     return {"currency": "EUR", "rows": _rows(cols, rows), "sql": executed}
@@ -249,6 +260,52 @@ def get_invoice(
     return {"invoice": invoice, "lines": _rows(lcols, lrows), "sql": executed}
 
 
+def _gold_ready(con, executed: list, view: str) -> None:
+    _, rows = _run(con, executed, "SELECT count(*) FROM duckdb_views() WHERE schema_name = 'gold' AND view_name = ?", [view])
+    if not rows[0][0]:
+        raise ToolError("La couche gold n'est pas encore calculée (commande `factures gold`). "
+                        "En attendant, utilisez invoice_totals avec group_by.")
+
+
+@server.tool(annotations=READ_ONLY)
+def monthly_spend(
+    year: Annotated[int | None, Field(description="Année d'émission, ex. 2025 (toutes si absent)")] = None,
+) -> dict:
+    """Dépense fournisseurs par mois (indicateur de la couche gold) : nombre de factures, HT, TVA, TTC, dont payé et à payer.
+
+    À utiliser pour « combien a-t-on dépensé en mars 2026 ? », « évolution mensuelle des achats »,
+    « quel mois a coûté le plus ? ». Les factures signalées (montant douteux) sont exclues des totaux et
+    comptées à part (flagged_count, flagged_ttc) : mentionnez-les si elles existent.
+    """
+    con, executed = _db(), []
+    _gold_ready(con, executed, "monthly_spend")
+    where, params = ("WHERE month LIKE ?", [f"{year}-%"]) if year is not None else ("", [])
+    cols, rows = _run(con, executed, f"SELECT * FROM gold.monthly_spend {where} ORDER BY month", params)
+    return {"currency": "EUR", "rows": _rows(cols, rows), "sql": executed}
+
+
+@server.tool(annotations=READ_ONLY)
+def supplier_balance(
+    supplier: Supplier = None,
+    with_aging: Annotated[bool, Field(description="Ajouter la balance âgée (encours par tranche de retard)")] = True,
+) -> dict:
+    """Encours fournisseurs (couche gold) : facturé, payé, reste à payer, dont échu, délai de paiement moyen, et balance âgée.
+
+    À utiliser pour « combien doit-on encore à Aubry ? », « quel fournisseur a le plus gros encours ? »,
+    « quels montants sont en retard de plus de 90 jours ? ». « Échu » se calcule sur la date d'échéance :
+    une facture « En attente » à l'échéance dépassée est échue (compteur status_outdated).
+    """
+    con, executed = _db(), []
+    _gold_ready(con, executed, "supplier_balance")
+    where, params = ("WHERE supplier_name ILIKE '%' || ? || '%'", [supplier]) if supplier else ("", [])
+    cols, rows = _run(con, executed, f"SELECT * FROM gold.supplier_balance {where} ORDER BY outstanding_ttc DESC", params)
+    result = {"currency": "EUR", "rows": _rows(cols, rows), "sql": executed}
+    if with_aging:
+        acols, arows = _run(con, executed, f"SELECT * FROM gold.aging {where} ORDER BY supplier_name, bucket", params)
+        result["aging"] = _rows(acols, arows)
+    return result
+
+
 @server.tool(annotations=READ_ONLY)
 def describe_schema() -> dict:
     """Schéma de l'entrepôt : vues interrogeables, colonnes, types, descriptions et valeurs possibles.
@@ -260,7 +317,7 @@ def describe_schema() -> dict:
                     "SELECT schema_name || '.' || view_name, comment FROM duckdb_views() WHERE NOT internal ORDER BY 1")
     _, columns = _run(con, executed,
                       "SELECT schema_name || '.' || table_name, column_name, data_type, comment FROM duckdb_columns() "
-                      "WHERE schema_name IN ('bronze', 'silver') ORDER BY 1, column_index")
+                      "WHERE schema_name IN ('bronze', 'silver', 'gold') ORDER BY 1, column_index")
     by_view: dict[str, list] = {}
     for view, col, typ, comment in columns:
         by_view.setdefault(view, []).append({"column": col, "type": typ, **({"description": comment} if comment else {})})
@@ -271,6 +328,7 @@ def describe_schema() -> dict:
             "Montants en euros, type DECIMAL(14,2).",
             "Jointure lignes ↔ factures : silver.invoice_lines.invoice_id = silver.invoices.invoice_id.",
             "silver.invoices ne contient pas les documents en quarantaine (silver.quarantine).",
+            "gold.* : indicateurs métier calculés depuis la silver (factures signalées exclues des montants).",
             "run_sql n'accepte qu'une requête SELECT.",
         ],
         "sql": executed,

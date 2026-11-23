@@ -112,3 +112,30 @@ def test_answer_checking_helpers():
 
 def Decimal_set(s):
     return {str(d) for d in numbers_in(s)}
+
+
+def test_numbers_not_found_in_tool_results_trigger_one_correction(data_dir):  # noqa: F811
+    totals = _call(1, "invoice_totals", '{"status": "En retard"}')
+    agent, (fixed, still_wrong) = run(data_dir, [
+        _resp(calls=[totals]),
+        _resp("Il reste 14 440,60 € à payer."),     # chiffre mal recopié (le vrai : 1 440,60 €)
+        _resp("Il reste 1 440,60 € à payer."),      # après la demande de correction
+        _resp(calls=[_call(2, "invoice_totals", '{"status": "En retard"}')]),
+        _resp("Il reste 9 999 € à payer."),
+        _resp("Toujours 9 999 €."),                 # n'en démord pas → avertissement visible
+    ], ["Combien reste-t-il ?", "Et maintenant ?"])
+    assert fixed.answer == "Il reste 1 440,60 € à payer." and fixed.corrected and fixed.ungrounded == []
+    correction = agent.llm.seen[2][-1]
+    assert correction["role"] == "user" and "14 440,60" in correction["content"]
+    assert still_wrong.ungrounded == ["9 999"] and "Vérification automatique" in still_wrong.answer
+
+
+def test_numbers_from_question_or_arguments_are_allowed():
+    from factures.agent import ungrounded_numbers
+
+    assert ungrounded_numbers("En 2025, 12 factures pour 106 886,43 €.",
+                              ['{"year": 2025}', '{"rows": [{"invoice_count": 12, "total_ttc": "106886.43"}]}']) == []
+    assert ungrounded_numbers("Environ 3 factures.", []) == []   # petits entiers : non contrôlés
+    # un arrondi demandé par l'utilisateur est accepté, une valeur inventée non
+    assert ungrounded_numbers("Prix moyen : 86,67 €.", ['{"rows": [{"avg": 86.67133333333332}]}']) == []
+    assert ungrounded_numbers("Prix moyen : 86,76 €.", ['{"rows": [{"avg": 86.67133333333332}]}']) == ["86,76"]

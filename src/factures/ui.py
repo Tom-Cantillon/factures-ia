@@ -208,6 +208,40 @@ def page_quality() -> None:
             st.success("Aucune erreur d'extraction journalisée.")
 
 
+# --------------------------------------------------------------------------- indicateurs (gold)
+
+def page_gold() -> None:
+    if not has_view("gold.supplier_balance"):
+        st.warning("Couche gold absente : lancez `uv run factures gold`.")
+        return
+    k = query("SELECT sum(outstanding_ttc) enc, sum(overdue_ttc) echu, sum(status_outdated) outdated, "
+              "sum(flagged_count) flagged, sum(flagged_ttc) flagged_ttc, max(as_of) as_of FROM gold.supplier_balance").iloc[0]
+    st.caption(f"Factures fournisseurs · arrêté au {k.as_of} · factures signalées exclues des montants")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Encours (reste à payer)", f"{float(k.enc) / 1000:,.0f} k€".replace(",", " "), help=eur(k.enc))
+    c2.metric("Dont échu", f"{float(k.echu) / 1000:,.0f} k€".replace(",", " "), help=eur(k.echu))
+    c3.metric("Statuts à mettre à jour", int(k.outdated), help="Factures « En attente » dont l'échéance est dépassée")
+    c4.metric("Signalées, exclues", int(k.flagged), help=eur(k.flagged_ttc))
+
+    st.subheader("Dépense mensuelle (TTC)")
+    m = query("SELECT month AS mois, paid_ttc::DOUBLE AS \"payé\", unpaid_ttc::DOUBLE AS \"à payer\" "
+              "FROM gold.monthly_spend ORDER BY month")
+    st.bar_chart(m, x="mois", y=["payé", "à payer"], y_label="€ TTC", height=280, stack=True)
+
+    left, right = st.columns([3, 2])
+    with left:
+        st.subheader("Encours par fournisseur")
+        st.dataframe(query("SELECT supplier_name AS fournisseur, invoice_count AS factures, invoiced_ttc AS facture_ttc, "
+                           "paid_ttc AS paye_ttc, outstanding_ttc AS encours_ttc, overdue_ttc AS echu_ttc, "
+                           "avg_payment_terms_days AS delai_moyen_j, status_outdated AS statuts_a_revoir "
+                           "FROM gold.supplier_balance ORDER BY encours_ttc DESC"), hide_index=True, width="stretch")
+    with right:
+        st.subheader("Balance âgée")
+        a = query("PIVOT (SELECT supplier_name AS fournisseur, bucket, amount_ttc FROM gold.aging) "
+                  "ON bucket USING sum(amount_ttc) ORDER BY fournisseur")
+        st.dataframe(a.astype(object).where(a.notna(), "—"), hide_index=True, width="stretch")
+
+
 # --------------------------------------------------------------------------- mise en page
 
 default, profiles = load_profiles()
@@ -224,10 +258,12 @@ with st.sidebar:
     st.divider()
     st.caption("Lecture seule : l'assistant passe par le serveur MCP, les pages par des vues DuckDB.")
 
-tab_chat, tab_inv, tab_q = st.tabs(["💬 Assistant", "📄 Factures", "🩺 Qualité"])
+tab_chat, tab_inv, tab_gold, tab_q = st.tabs(["💬 Assistant", "📄 Factures", "📈 Indicateurs", "🩺 Qualité"])
 with tab_chat:
     page_assistant(profile)
 with tab_inv:
     page_invoices()
+with tab_gold:
+    page_gold()
 with tab_q:
     page_quality()

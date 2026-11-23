@@ -41,8 +41,9 @@ Règles :
 N'invente jamais un chiffre et ne le recalcule pas de tête : pour une somme ou un comptage, appelle invoice_totals.
 - Recopie les montants exactement tels que renvoyés, en euros, au format français (ex. 106 886,43 €).
 - Choix des outils : invoice_totals pour compter ou additionner ; list_invoices pour lister ou trouver des \
-factures ; get_invoice pour le détail d'une facture ; describe_schema puis run_sql seulement si aucun autre \
-outil ne convient.
+factures ; get_invoice pour le détail d'une facture ; monthly_spend pour la dépense par mois ; \
+supplier_balance pour l'encours (reste à payer), l'échu et la balance âgée par fournisseur ; describe_schema \
+puis run_sql seulement si aucun autre outil ne convient.
 - Si un outil renvoie une erreur, lis le message, corrige tes arguments et réessaie.
 - Si les données ne permettent pas de répondre, dis-le simplement.
 - Si une facture concernée est « signalee » (anomalie détectée), signale-le dans ta réponse.
@@ -91,6 +92,54 @@ def mcp_server_params() -> StdioServerParameters:
     """
     return StdioServerParameters(command=sys.executable, args=["-m", "factures.mcp_server"],
                                  env={**os.environ, "DATA_DIR": str(config.DATA_DIR), "FACTURES_MCP_LOG": "WARNING"})
+
+
+# Un nombre : groupé par milliers avec des espaces (« 106 886,43 »), ou d'un bloc (« 106886.43 », « 229,000 »).
+# Une virgule suivie d'un espace sépare deux nombres (« en 2025, 12 factures ») : elle n'en fait pas partie.
+_NUMBER = r"\d{1,3}(?:[ \u202f\u00a0]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)*"
+
+
+def numbers_in(text: str) -> set:
+    """Tous les nombres d'un texte en français ou en anglais : '106 886,43 €', '106886.43', '12'."""
+    import re
+    from decimal import Decimal, InvalidOperation
+
+    found = set()
+    for m in re.finditer(_NUMBER, text):
+        s = re.sub(r"[\s  ]", "", m.group())
+        if "," in s and "." in s:
+            s = s.replace(".", "").replace(",", ".") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
+        elif "," in s:
+            if len(s.split(",")[-1]) == 3:   # « 229,000 » : milliers ou décimales ? on garde les deux lectures
+                for cand in (s.replace(",", ""), s.replace(",", ".")):
+                    found.add(Decimal(cand).normalize())
+                continue
+            s = s.replace(",", ".")
+        try:
+            found.add(Decimal(s.strip(".")).normalize())
+        except InvalidOperation:
+            pass
+    return found
+
+
+def ungrounded_numbers(answer: str, sources: list[str]) -> list[str]:
+    """Nombres significatifs de la réponse (≥ 10 ou décimaux) qui n'apparaissent dans aucune source."""
+    import re
+
+    from decimal import ROUND_HALF_UP, Decimal
+
+    known = set().union(*(numbers_in(s) for s in sources)) if sources else set()
+    # Un arrondi d'une valeur d'outil est légitime (« arrondis au centime » : 86,67 pour 86,6713…).
+    for v in list(known):
+        for places in ("1", "0.1", "0.01"):
+            known.add(v.quantize(Decimal(places), rounding=ROUND_HALF_UP).normalize())
+    missing = []
+    for m in re.finditer(_NUMBER, answer):
+        values = numbers_in(m.group())
+        significant = any(abs(v) >= 10 or v != v.to_integral_value() for v in values)
+        if values and significant and not values & known and m.group().strip() not in missing:
+            missing.append(m.group().strip())
+    return missing
 
 
 def clean_answer(text: str) -> str:
@@ -173,6 +222,8 @@ class Turn:
     seconds: float
     llm_calls: int
     stopped: str = "fin"          # fin | max_steps | erreur_llm
+    ungrounded: list = field(default_factory=list)  # chiffres de la réponse introuvables dans les résultats d'outils
+    corrected: bool = False       # une première réponse contenait un chiffre non sourcé, corrigé ensuite
 
 
 class Agent:
@@ -208,7 +259,7 @@ class Agent:
         )
 
     async def ask(self, question: str) -> Turn:
-        start, calls, n_llm = time.perf_counter(), [], 0
+        start, calls, n_llm, checked = time.perf_counter(), [], 0, False
         checkpoint = len(self.messages)
         self.messages.append({"role": "user", "content": question})
 
@@ -232,7 +283,24 @@ class Agent:
             if not tool_calls:
                 answer = clean_answer(msg.content or "")
                 self.messages[-1]["content"] = answer
-                turn = Turn(question, answer, calls, time.perf_counter() - start, n_llm)
+                # Vérification des chiffres : chaque nombre significatif de la réponse doit apparaître dans un
+                # résultat d'outil, la question ou les arguments envoyés. Sinon, une seule demande de correction.
+                missing = ungrounded_numbers(answer, self._grounding_sources())
+                if missing and not checked:
+                    checked = True
+                    self.display.info(f"⚠ chiffre(s) absent(s) des résultats d'outils : {', '.join(missing)} "
+                                      "— correction demandée au LLM")
+                    self.messages.append({"role": "user", "content": (
+                        "Vérification automatique : ces nombres de ta réponse n'apparaissent dans aucun résultat "
+                        f"d'outil : {', '.join(missing)}. Réécris ta réponse en recopiant exactement les valeurs "
+                        "renvoyées par les outils (rappelle un outil si nécessaire).")})
+                    continue
+                if missing:
+                    answer += ("\n\n⚠️ Vérification automatique : " + ", ".join(missing) +
+                               " n'apparai(ssen)t dans aucun résultat d'outil. À vérifier avant usage.")
+                    self.messages[-1]["content"] = answer
+                turn = Turn(question, answer, calls, time.perf_counter() - start, n_llm, ungrounded=missing,
+                            corrected=checked and not missing)
                 self.display.answer(answer, self.profile, turn.seconds, len(calls))
                 return turn
 
@@ -246,6 +314,17 @@ class Agent:
         self.messages.append({"role": "assistant", "content": answer})
         self.display.answer(answer, self.profile, time.perf_counter() - start, len(calls))
         return Turn(question, answer, calls, time.perf_counter() - start, n_llm, "max_steps")
+
+    def _grounding_sources(self) -> list[str]:
+        """Textes d'où un chiffre peut légitimement venir : questions, résultats d'outils, arguments envoyés."""
+        out = [date.today().isoformat()]
+        for m in self.messages:
+            # (les demandes de correction citent le chiffre fautif : elles ne doivent pas le « valider »)
+            if m["role"] == "tool" or (m["role"] == "user" and not m["content"].startswith("Vérification automatique")):
+                out.append(m["content"])
+            for c in m.get("tool_calls", []):
+                out.append(c["function"]["arguments"])
+        return out
 
     async def _run_tool(self, step: int, name: str, raw_args: str) -> tuple[str, ToolCall]:
         try:

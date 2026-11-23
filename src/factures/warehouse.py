@@ -85,6 +85,38 @@ VIEWS: dict[str, tuple[str, str, dict[str, str]]] = {
             "duplicate_of": "Pour un doublon : doc_id de la facture retenue",
         },
     ),
+    "gold.monthly_spend": (
+        "gold/monthly_spend",
+        "Dépense fournisseurs par mois d'émission (factures valides). Les factures signalées sont comptées à part.",
+        {
+            "month": "Mois d'émission, format AAAA-MM",
+            "total_ttc": "Dépense TTC du mois (EUR), factures valides uniquement",
+            "paid_ttc": "Dont déjà payé (EUR)",
+            "unpaid_ttc": "Dont restant à payer (EUR)",
+            "flagged_count": "Factures signalées (montant douteux) exclues des totaux",
+            "as_of": "Date d'arrêté du calcul",
+        },
+    ),
+    "gold.supplier_balance": (
+        "gold/supplier_balance",
+        "Situation par fournisseur : facturé, payé, encours à payer, dont échu, délai de paiement moyen.",
+        {
+            "outstanding_ttc": "Encours : total TTC des factures non payées (EUR)",
+            "overdue_ttc": "Dont échu : échéance dépassée à la date d'arrêté (EUR)",
+            "avg_payment_terms_days": "Délai de paiement moyen accordé (échéance - émission, en jours)",
+            "status_outdated": "Factures « En attente » dont l'échéance est dépassée (statut à mettre à jour)",
+            "flagged_ttc": "Montant des factures signalées, exclu des totaux (EUR)",
+        },
+    ),
+    "gold.aging": (
+        "gold/aging",
+        "Balance âgée de l'encours : montants non payés par fournisseur et tranche de retard à la date d'arrêté.",
+        {
+            "bucket": "Tranche : 0. non échu, 1. 1-30 j, 2. 31-60 j, 3. 61-90 j, 4. > 90 j",
+            "amount_ttc": "Montant TTC non payé dans la tranche (EUR)",
+            "max_days_past_due": "Plus grand retard de la tranche, en jours",
+        },
+    ),
 }
 
 
@@ -94,7 +126,7 @@ def _sql_str(s: str) -> str:
 
 def view_statements(data_dir: Path = config.DATA_DIR) -> tuple[list[str], list[str]]:
     """Instructions SQL créant schémas, vues et commentaires. Retourne (instructions, vues ignorées)."""
-    stmts = ["CREATE SCHEMA IF NOT EXISTS bronze", "CREATE SCHEMA IF NOT EXISTS silver"]
+    stmts = [f"CREATE SCHEMA IF NOT EXISTS {s}" for s in ("bronze", "silver", "gold")]
     skipped = []
     for name, (rel, desc, cols) in VIEWS.items():
         folder = (data_dir / rel).resolve()

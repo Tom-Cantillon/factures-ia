@@ -19,33 +19,32 @@ uv sync
 # 2. Configurer les secrets (jamais commités)
 cp .env.example .env   # puis remplir les identifiants S3, la clé OCR, le LLM
 
-# 3. Récupérer les factures (incrémental : relancer ne retélécharge rien)
-uv run factures fetch
-
-# 4. Détecter pour chaque PDF s'il est « texte » ou « image » (OCR nécessaire)
-uv run factures detect          # tableau lisible
-uv run factures detect --csv    # sortie CSV
-
-# 5. Envoyer une page au modèle d'OCR et afficher le texte reconnu (+ temps de traitement)
-uv run factures ocr facture_A-2025-0003_scan.pdf
-uv run factures ocr facture_A-2025-0003_scan.pdf --longest-side 1024 --save-image page.png
-
-# 6. Couche bronze : extraire le texte de tous les PDF (OCR seulement pour les scans)
-uv run factures bronze --limit 5   # commencer petit
-uv run factures bronze             # tout le reste ; relancer n'ajoute rien et ne fait aucun appel OCR
-uv run factures silver             # 7. couche silver : parsing, typage, contrôles, quarantaine
-uv run factures run                # fetch + bronze + silver + warehouse en une commande
-
-# 9. Entrepôt SQL (vues DuckDB sur les Parquet)
-uv run factures warehouse          # génère data/warehouse.duckdb pour DBeaver
-uv run factures sql "SELECT status, count(*), sum(total_ttc) FROM silver.invoices GROUP BY 1"
+# 3. Toute la chaîne en une commande : fetch → bronze → silver → gold → entrepôt (incrémental)
+uv run factures run
 uv run factures status             # résumé landing / bronze / erreurs à retraiter
 
-# 8. Évaluer l'OCR champ par champ (vérité terrain + 3 résolutions + faux scans) → eval/results.md
-uv run factures eval --sides 512 768 1540 --synthetic
+# 4. Interroger
+uv run factures sql "SELECT status, count(*), sum(total_ttc) FROM silver.invoices GROUP BY 1"
+uv run factures agent              # assistant en français (LLM au choix : --llm)
+uv run factures ui --port 8502     # interface web
 
 # Tests
 uv run pytest
+```
+
+Commandes étape par étape (détaillées dans les sections suivantes) :
+
+```bash
+uv run factures fetch              # 1. récupérer les nouvelles factures du bucket S3
+uv run factures detect             # 1. « texte » ou « image » pour chaque PDF (--csv possible)
+uv run factures ocr facture_A-2025-0003_scan.pdf   # 2. une page envoyée à l'OCR, avec le temps
+uv run factures bronze --limit 5   # 3. couche bronze (commencer petit, puis sans --limit)
+uv run factures silver             # 4. couche silver : parsing, typage, contrôles, quarantaine
+uv run factures eval --sides 512 768 1540 --synthetic   # 5. évaluation OCR → eval/results.md
+uv run factures warehouse          # 6. fichier de vues pour DBeaver (data/warehouse.duckdb)
+uv run factures-mcp                # 7. serveur MCP (lancé automatiquement par les clients)
+uv run factures agent-bench        # 8. mêmes questions sur tous les LLM → eval/agent_results.md
+uv run factures gold               # bonus : indicateurs métier (dépense mensuelle, encours, balance âgée)
 ```
 
 Le projet utilise Python 3.13 (fixé dans `.python-version`, uv l'installe automatiquement).
@@ -303,41 +302,73 @@ uv run factures agent-bench                             # mêmes questions sur t
   au LLM pour qu'il se corrige. Si le LLM est injoignable, le tour est annulé proprement. On sort
   avec `/quit`, Ctrl-D ou Ctrl-C (la connexion MCP est fermée). Les jetons de contrôle laissés par
   certains modèles (`<|channel>thought…` de Gemma) sont retirés.
-- **Ne pas inventer de chiffres.** Le prompt système impose que tout chiffre vienne d'un résultat
-  d'outil, recopié tel quel, et interdit de calculer de tête. Le serveur fait les calculs en SQL
-  (`invoice_totals`) et renvoie des montants exacts. La réponse cite sa source.
+- **Ne pas inventer de chiffres**, en trois niveaux :
+  1. le prompt système impose que tout chiffre vienne d'un résultat d'outil, recopié tel quel, et la
+     réponse cite sa source ;
+  2. les calculs, **et les classements**, sont faits en SQL par le serveur. Les regroupements de
+     `invoice_totals` sont triés par montant décroissant : le LLM n'a jamais à chercher lui-même un
+     maximum dans un tableau ;
+  3. une **vérification automatique** contrôle, après chaque réponse, que chaque nombre significatif
+     (≥ 10 ou décimal) figure dans un résultat d'outil, la question ou les arguments envoyés. Sinon,
+     le LLM est renvoyé corriger une fois. Si l'écart persiste, la réponse est affichée avec un
+     avertissement explicite.
+
+  Ces deux derniers garde-fous viennent du banc d'essai. Granite avait recopié 41 645,27 € en
+  **416 645,27 €**, et désigné le mauvais fournisseur en lisant un tableau trié par nom.
 
 ### Mêmes questions, quatre LLM — chiffres vérifiés par SQL ([détail](eval/agent_results.md))
 
-Neuf questions, dont une qui fait appel à la mémoire de la conversation (« Et parmi elles… ») et
-deux sans outil dédié, qui obligent le modèle à écrire son propre SQL. La bonne réponse est calculée
-par une requête SQL directe sur l'entrepôt, indépendamment de l'agent.
+Onze questions, dont une qui fait appel à la mémoire de la conversation (« Et parmi elles… »), deux sur
+les indicateurs gold et deux sans outil dédié, qui obligent le modèle à écrire son propre SQL. La bonne
+réponse est calculée par une requête SQL directe sur l'entrepôt, indépendamment de l'agent.
 
 | | Gemma 4 12B (hébergé) | Granite 4.2 8B (hébergé) | Nemotron Bolt E4B (hébergé) | Ministral 3 8B (local, Ollama) |
 |---|---:|---:|---:|---:|
-| 7 questions couvertes par un outil | 7/7 | 7/7 | 7/7 | 7/7 |
-| 2 questions demandant du SQL libre | 2/2 | 2/2 | 0/2 (refus) | 0/2 (hors sujet) |
-| Temps total (9 questions) | 26 s | 28 s | 14 s | 92 s |
+| 9 questions couvertes par un outil | 9/9 | 9/9 | 9/9 | 9/9 |
+| 2 questions demandant du SQL libre | 2/2 | 2/2 | 0/2 (refus) | 1/2 |
+| Temps total (11 questions) | 30 s | 33 s | 16 s | 141 s |
 
 Observations :
 - **Avec des outils dédiés, même un petit modèle suffit.** Les 4 modèles ont tout juste sur les
-  7 questions courantes, mémoire de conversation comprise. Les outils métier, des descriptions
-  précises et des filtres tolérants (`en retard` est accepté pour `En retard`) déplacent la
-  difficulté du LLM vers le serveur.
-- **Le SQL libre sépare les modèles.** Gemma et Granite enchaînent correctement `describe_schema`,
-  puis `run_sql` avec agrégation sur `invoice_lines`. Nemotron, le plus petit, ne pense pas à
-  `run_sql` et répond honnêtement qu'aucun outil ne convient. Ministral répond à une autre question
-  (factures au lieu d'articles, « toner noir » pris pour un fournisseur). C'est le cas le plus
-  dangereux : la réponse a l'air sérieuse. **Aucun modèle n'a inventé de chiffre.**
-- **Vitesse.** Le modèle local, sur le Mac, est environ 4 à 15 fois plus lent selon les questions
-  (de 6 à 146 s observés). La latence grandit avec l'historique de la conversation. Les modèles
-  hébergés sur GPU répondent en 1 à 5 s.
-- **Fiabilité de l'infrastructure.** Pendant un passage, la passerelle a renvoyé des erreurs de
-  connexion. L'agent les a affichées et a annulé le tour, sans planter. Un second passage complet a
-  donné les résultats ci-dessus.
-- **Vérifier le vérificateur.** Le premier correcteur automatique comptait faux « 229,000 unités »
-  (quantité `DECIMAL(14,3)` lue comme 229 000) et comparait un flottant à un décimal. Les réponses de
-  l'agent étaient justes : c'est le contrôle qui a été corrigé.
+  questions courantes, mémoire de conversation comprise.
+- **Le SQL libre sépare les modèles.** Nemotron, le plus petit, ne pense pas à `run_sql` et répond
+  honnêtement qu'aucun outil ne convient. Ministral a déjà répondu à une autre question que celle
+  posée (« toner noir » pris pour un fournisseur) : la réponse a l'air sérieuse, c'est le cas le plus
+  dangereux.
+- **Un prompt ne suffit pas à empêcher les faux chiffres.** Lors d'un passage, Granite a recopié
+  41 645,27 € en 416 645,27 €, et désigné le mauvais fournisseur en cherchant le maximum dans un
+  tableau. D'où le tri des regroupements par la base et la vérification automatique des chiffres :
+  au passage suivant, Granite fait 11/11.
+- **Vérifier le vérificateur.** La première version de la vérification refusait un arrondi demandé
+  par l'utilisateur (86,67 pour 86,6713…), et poussait le LLM à le remplacer par la valeur brute. Les
+  arrondis d'une valeur d'outil sont maintenant acceptés.
+- **Vitesse.** Le modèle local, sur le Mac, est 4 à 10 fois plus lent que les modèles hébergés sur GPU.
+
+## Bonus — Couche gold (indicateurs métier)
+
+`uv run factures gold` (inclus dans `factures run`) calcule depuis la silver trois tables
+`data/gold/<table>/data.parquet`, exposées en SQL (`gold.*`) et par deux outils MCP :
+
+| Table | Contenu | Outil MCP |
+|---|---|---|
+| `monthly_spend` | dépense par mois d'émission : nombre, HT, TVA, TTC, dont payé / à payer | `monthly_spend(year)` |
+| `supplier_balance` | par fournisseur : facturé, payé, **encours**, dont **échu**, délai de paiement moyen, statuts à revoir | `supplier_balance(supplier)` |
+| `aging` | **balance âgée** de l'encours : non échu, 1-30 j, 31-60 j, 61-90 j, > 90 j | `supplier_balance(…, with_aging)` |
+
+Ce sont des factures **fournisseurs** : on mesure des dépenses et un reste à payer, pas un chiffre
+d'affaires. Choix faits :
+- **Factures signalées exclues des montants** (leur montant est douteux), mais comptées à part
+  (`flagged_count`, `flagged_ttc`), pour que rien ne disparaisse sans le dire.
+- **Le retard se calcule sur l'échéance**, pas seulement sur le statut imprimé. Sur le jeu fourni,
+  **19 factures « En attente » ont déjà dépassé leur échéance** : elles comptent comme échues et sont
+  signalées dans `status_outdated`.
+- **Date d'arrêté** (`as_of`) stockée dans chaque table, pour savoir à quelle date les retards ont été
+  calculés.
+- Cohérence testée : la dépense gold plus les factures signalées égale le total silver
+  (972 687,52 €), et l'encours égale la somme de la balance âgée (341 003,63 €).
+
+L'interface web a un onglet **📈 Indicateurs** (encours, échu, dépense mensuelle payée / à payer,
+encours par fournisseur, balance âgée).
 
 ## Interface web locale
 
@@ -345,11 +376,12 @@ Observations :
 uv run factures ui            # → http://localhost:8501  (option --port si 8501 est pris)
 ```
 
-L'interface (Streamlit) a trois onglets :
+L'interface (Streamlit) a quatre onglets :
 - **💬 Assistant** : l'agent de l'étape 8 (même code, même serveur MCP), avec choix du LLM dans la
   barre latérale. Sous chaque réponse, le détail des outils appelés, du SQL exécuté et des résultats.
 - **📄 Factures** : indicateurs, filtres (fournisseur, statut, catégorie, année), liste des factures,
   montants par mois et détail d'une facture avec ses lignes.
+- **📈 Indicateurs** : couche gold (encours, échu, dépense mensuelle, balance âgée).
 - **🩺 Qualité** : factures signalées, quarantaine, répartition texte / OCR, journal des erreurs
   d'extraction.
 
