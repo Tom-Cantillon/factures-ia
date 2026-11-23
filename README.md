@@ -7,8 +7,8 @@ les stocker dans une architecture médaillon et les interroger en langage nature
  PDF (bucket S3) ──► extraction / OCR ──► bronze ──► silver ──► entrepôt ──► serveur MCP ──► agent IA
 ```
 
-**Rapport** : [docs/RAPPORT.pdf](docs/RAPPORT.pdf) (source [docs/RAPPORT.md](docs/RAPPORT.md), régénéré par
-`uv run --with markdown python docs/build_pdf.py`).
+> 📄 **Rapport du projet : [RAPPORT.pdf](RAPPORT.pdf)** (à la racine du dépôt, 6 pages).
+> Source : [docs/RAPPORT.md](docs/RAPPORT.md), régénérée par `uv run --with markdown python docs/build_pdf.py`.
 
 ## Démarrage rapide
 

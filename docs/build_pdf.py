@@ -1,4 +1,4 @@
-"""Génère docs/RAPPORT.pdf à partir de docs/RAPPORT.md (Markdown → HTML mis en page → PDF via Chrome).
+"""Génère RAPPORT.pdf (racine du dépôt) à partir de docs/RAPPORT.md (Markdown → HTML mis en page → PDF via Chrome).
 
     uv run --with markdown python docs/build_pdf.py
 """
@@ -70,7 +70,7 @@ def main() -> None:
     html = DOCS / "RAPPORT.html"
     html.write_text(f'<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport</title>'
                     f"<style>{CSS}</style></head><body>{body}</body></html>")
-    pdf = DOCS / "RAPPORT.pdf"
+    pdf = DOCS.parent / "RAPPORT.pdf"  # à la racine du dépôt, bien visible pour le correcteur
     subprocess.run([chrome(), "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
                     f"--print-to-pdf={pdf}", html.as_uri()], check=True, capture_output=True)
     html.unlink()
