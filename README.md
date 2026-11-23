@@ -7,6 +7,9 @@ les stocker dans une architecture médaillon et les interroger en langage nature
  PDF (bucket S3) ──► extraction / OCR ──► bronze ──► silver ──► entrepôt ──► serveur MCP ──► agent IA
 ```
 
+**Rapport** : [docs/RAPPORT.pdf](docs/RAPPORT.pdf) (source [docs/RAPPORT.md](docs/RAPPORT.md), régénéré par
+`uv run --with markdown python docs/build_pdf.py`).
+
 ## Démarrage rapide
 
 ```bash
@@ -154,7 +157,7 @@ l'erreur et pourrait conduire à payer un mauvais montant. La valeur lue est con
 tranche.
 
 Choix lié au jeu de données : la **clé de Luhn des SIRET n'est pas exigée**. Les SIRET du jeu sont
-fictifs et seuls 14 % d'entre eux la respectent (11 fournisseurs et 3 clients sur 100 factures).
+fictifs et seuls 7 % d'entre eux la respectent (14 SIRET sur 200 : 11 fournisseurs, 3 clients).
 L'exiger signalerait 100 % des factures et noierait les vraies anomalies. La fonction est fournie
 (`siret_luhn_ok`) pour des données réelles. La clé IBAN, elle, est valide sur 100/100 : elle est
 gardée, car elle détecte un chiffre mal lu par l'OCR.
