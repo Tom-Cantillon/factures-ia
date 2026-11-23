@@ -5,6 +5,8 @@ description = "De la facture scannée à l'agent IA : S3 → OCR → bronze → 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "boto3>=1.44.9",
+    "openai>=3.57.0",
     "python-dotenv",
 ]
 
