@@ -84,7 +84,9 @@ class LightOnOcr:
 
 def get_engine(name: str | None = None) -> OcrEngine:
     """Fabrique le moteur choisi par configuration (OCR_ENGINE, par défaut lightonocr)."""
-    name = name or os.getenv("OCR_ENGINE", "lightonocr")
+    from factures import config  # noqa: F401 — charge le fichier .env
+
+    name =name or os.getenv("OCR_ENGINE", "lightonocr")
     if name == "lightonocr":
         return LightOnOcr(
             base_url=os.environ["OCR_BASE_URL"],

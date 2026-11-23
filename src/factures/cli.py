@@ -81,7 +81,77 @@ def cmd_ocr(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cached_engine():
+    """Un seul client OCR partagé, créé seulement si un document a réellement besoin d'OCR."""
+    import functools
+    import threading
+
+    from factures.ocr import get_engine
+
+    lock = threading.Lock()
+
+    @functools.cache
+    def build():
+        return get_engine()
+
+    def factory():
+        with lock:
+            return build()
+
+    return factory
+
+
+def cmd_bronze(args: argparse.Namespace) -> int:
+    from factures.bronze import ingest
+
+    res = ingest(_cached_engine(), limit=args.limit, workers=args.workers, longest_side=args.longest_side)
+    print(
+        f"run {res.run_id} : {len(res.extracted)} extrait(s), {res.already_done} déjà en bronze, "
+        f"{len(res.failed)} en échec (retentés au prochain run), {res.ocr_calls} appel(s) OCR"
+    )
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    cmd_fetch(args)
+    return cmd_bronze(args)
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    import duckdb
+
+    from factures.bronze import DOCUMENTS, ERRORS, _has_files, _table_glob
+
+    b = config.BRONZE_DIR
+    landing = len(list(config.LANDING_DIR.rglob("*.pdf")))
+    print(f"landing : {landing} PDF")
+    if not _has_files(b, DOCUMENTS):
+        print("bronze  : vide")
+        return 0
+    docs = _table_glob(b, DOCUMENTS)
+    print("bronze.documents :")
+    for method, n, secs in duckdb.execute(
+        "SELECT extraction_method, count(*), round(avg(ocr_seconds), 1) FROM read_parquet(?) GROUP BY 1 ORDER BY 1",
+        [docs],
+    ).fetchall():
+        print(f"  {method:<9} {n:>4}" + (f"   (OCR moyen {secs} s/doc)" if secs else ""))
+    if _has_files(b, ERRORS):
+        pending = duckdb.execute(
+            "SELECT count(DISTINCT e.doc_id) FROM read_parquet(?) e "
+            "WHERE e.doc_id NOT IN (SELECT doc_id FROM read_parquet(?))",
+            [_table_glob(b, ERRORS), docs],
+        ).fetchone()[0]
+        total = duckdb.execute("SELECT count(*) FROM read_parquet(?)", [_table_glob(b, ERRORS)]).fetchone()[0]
+        print(f"bronze.extraction_errors : {total} échec(s) journalisé(s), {pending} document(s) encore à retraiter")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    import logging
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
+    for noisy in ("httpx", "httpx2", "openai", "botocore", "boto3", "urllib3"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(prog="factures", description="Pipeline factures : S3 → OCR → bronze → silver")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -99,6 +169,20 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--longest-side", type=int, default=1540, help="Plus grand côté de l'image envoyée, en pixels")
     p.add_argument("--save-image", metavar="PNG", help="Enregistre l'image envoyée au modèle")
     p.set_defaults(func=cmd_ocr)
+
+    for name, func, help_ in (
+        ("bronze", cmd_bronze, "Extrait le texte des PDF de data/landing vers la couche bronze (incrémental)"),
+        ("run", cmd_run, "fetch + bronze"),
+    ):
+        p = sub.add_parser(name, help=help_)
+        p.add_argument("--limit", type=int, help="Traiter au plus N nouveaux documents")
+        p.add_argument("--workers", type=int, default=4, help="Appels OCR en parallèle")
+        p.add_argument("--longest-side", type=int, default=1540, help="Taille des images envoyées à l'OCR")
+        p.add_argument("--bucket", default=config.S3_BUCKET)
+        p.set_defaults(func=func)
+
+    p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
+    p.set_defaults(func=cmd_status)
 
     args = parser.parse_args(argv)
     return args.func(args)

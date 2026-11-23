@@ -11,6 +11,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 # Chemins relatifs à DATA_DIR : le même code marche sur la machine, en conteneur et chez un collègue.
 DATA_DIR = Path(os.getenv("DATA_DIR", PROJECT_ROOT / "data"))
 LANDING_DIR = DATA_DIR / "landing"
+BRONZE_DIR = DATA_DIR / "bronze"
+SILVER_DIR = DATA_DIR / "silver"
 
 # S3 : les identifiants (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ENDPOINT_URL,
 # AWS_DEFAULT_REGION) sont lus directement par boto3 depuis l'environnement.

@@ -27,6 +27,12 @@ uv run factures detect --csv    # sortie CSV
 uv run factures ocr facture_A-2025-0003_scan.pdf
 uv run factures ocr facture_A-2025-0003_scan.pdf --longest-side 1024 --save-image page.png
 
+# 6. Couche bronze : extraire le texte de tous les PDF (OCR seulement pour les scans)
+uv run factures bronze --limit 5   # commencer petit
+uv run factures bronze             # tout le reste ; relancer n'ajoute rien et ne fait aucun appel OCR
+uv run factures run                # fetch + bronze en une commande
+uv run factures status             # résumé landing / bronze / erreurs à retraiter
+
 # Tests
 uv run pytest
 ```
@@ -76,11 +82,39 @@ Le projet utilise Python 3.13 (fixé dans `.python-version`, uv l'installe autom
 - Sortie : du markdown avec les tableaux en HTML. Environ 6 s par page.
   Détails, mesures et compromis taille / vitesse : [docs/journal_ocr.md](docs/journal_ocr.md).
 
+## Étape 3 — Couche bronze
+
+Stockage : des fichiers **Parquet** sous `data/bronze/<table>/`. C'est un format colonnaire, typé et
+lisible directement en SQL par DuckDB (étape 6). Deux tables :
+
+| Table | Contenu |
+|---|---|
+| `documents` | une ligne par PDF extrait : `doc_id` (SHA-256 du contenu), URI S3, ETag, méthode (`pdf_text` / `ocr` / `mixte`), texte brut par page, moteur / modèle / paramètres OCR, taille d'image, tokens, durées, `run_id`, version du pipeline |
+| `extraction_errors` | journal des échecs : document, étape (`pdf` / `ocr`), type et message d'erreur, nombre de tentatives, `run_id` |
+
+- **Déjà vu ?** Un document est identifié par le **SHA-256 de son contenu**, pas par son nom : un
+  fichier renommé n'est pas retraité, un fichier remplacé sous le même nom l'est.
+- **Append-only** : chaque run écrit de nouveaux fichiers (`<run_id>-NNNN.parquet`, écriture atomique)
+  et ne modifie ni ne supprime jamais les anciens. La bronze est la preuve de ce qui a été lu, et
+  comment. Si le parseur silver évolue, on la relit sans refaire d'OCR, qui est coûteux et non déterministe.
+- **Pannes OCR** : chaque page est tentée 3 fois avec un délai croissant entre les essais. Les erreurs
+  non transitoires (authentification, requête invalide) ne sont pas retentées. Après 3 échecs
+  consécutifs, un **coupe-circuit** arrête les appels pour le reste du run. Chaque échec est écrit dans
+  `extraction_errors`. Le document, absent de `documents`, sera retraité au prochain run.
+- **Parallélisme** : 4 appels OCR simultanés par défaut (`--workers`). Les résultats sont écrits par un
+  seul thread.
+
+Mesures sur le jeu complet :
+- 100 documents, dont 50 OCR, en **1 min 37** avec 4 workers, soit 7,6 s d'OCR en moyenne par scan.
+- Deuxième run : 0 extrait, 0 appel OCR.
+- Panne simulée (`OCR_BASE_URL` injoignable) : les PDF texte passent, les scans sont journalisés, et le
+  run suivant les rattrape.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
 - [x] Étape 2 — Appel du modèle OCR LightOnOCR-3
-- [ ] Étape 3 — Couche bronze (incrémentale, traçable)
+- [x] Étape 3 — Couche bronze (incrémentale, traçable)
 - [ ] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
 - [ ] Étape 5 — Évaluation de l'OCR
 - [ ] Étape 6 — Entrepôt de données
