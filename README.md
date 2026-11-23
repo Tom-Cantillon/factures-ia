@@ -218,6 +218,62 @@ conteneur (`DATA_DIR=/data`), on relance `factures warehouse` et les référence
    ouvrir le fichier en même temps, et `factures warehouse` peut le régénérer.
 5. Les schémas `bronze` et `silver` apparaissent, avec les commentaires des vues et des colonnes.
 
+## Étape 7 — Serveur MCP
+
+`src/factures/mcp_server.py`, lancé par `uv run factures-mcp` (transport stdio). Il est écrit avec le
+SDK MCP officiel en Python (`mcp` 2.x, classe `MCPServer`).
+
+| Outil | Rôle |
+|---|---|
+| `list_invoices` | factures filtrées par fournisseur, client, statut, catégorie, qualité, année ou période ; tri et pagination |
+| `invoice_totals` | nombre de factures et sommes HT / TVA / TTC avec les mêmes filtres, regroupement optionnel (statut, fournisseur, mois…) |
+| `get_invoice` | détail d'une facture et de ses lignes |
+| `describe_schema` | vues, colonnes, types, descriptions et valeurs possibles |
+| `run_sql` | requête SQL libre, **lecture seule** |
+
+**Transparence.** Chaque réponse contient `sql` : les requêtes réellement exécutées et leurs paramètres.
+
+**Choix des outils par le LLM.** Chaque description dit *quand* utiliser l'outil, avec des exemples
+de questions (« combien… », « quel montant… » → `invoice_totals`). Elle précise les valeurs exactes
+attendues (`'En retard'`), les formats (`AAAA-MM-JJ`) et l'unité (EUR). Des outils dédiés aux
+questions courantes évitent que le LLM écrive du SQL, plus lent et plus risqué. `run_sql` reste le
+dernier recours.
+
+**Sécurité (un argument d'outil vient d'un LLM, donc d'une source non fiable).**
+- Les filtres sont passés en **paramètres liés** (`?`), jamais concaténés au SQL. Les colonnes de tri
+  et de regroupement sont choisies dans une liste fermée (`Literal`), et les valeurs énumérées sont
+  validées.
+- `run_sql` applique quatre barrières :
+  1. une seule instruction, de type `SELECT`, selon l'analyseur de DuckDB lui-même ;
+  2. une connexion neuve et jetable à chaque appel ;
+  3. le bac à sable DuckDB : fichiers limités à `bronze/` et `silver/`, pas d'extension, pas
+     d'`ATTACH`, configuration verrouillée ;
+  4. un plafond de 500 lignes et 10 s d'exécution.
+- Pourquoi la barrière 1 est nécessaire : un essai a montré que le bac à sable seul laissait passer
+  `COPY … TO 'data/silver/x.parquet'`.
+
+**Erreurs.** Une erreur renvoie `is_error` avec un message et un **indice** pour que le LLM se
+corrige : valeurs permises, format de date, numéros de facture proches, colonnes candidates, ou
+« appelez describe_schema ».
+
+**Tests** (`tests/test_step7_mcp.py`) : un vrai client MCP lance le serveur en stdio sur un jeu de
+données de test. Le test appelle chaque outil et vérifie ses résultats, puis tente 12 attaques par
+`run_sql` (`DROP`, `DELETE`, `COPY` vers silver, `ATTACH`, `SET`, `INSTALL`, lecture de
+`/etc/passwd` et de `.env`, double requête…). Toutes sont refusées, et aucun fichier n'est créé ni
+modifié.
+
+### Brancher le serveur
+
+- **Claude Code** : `.mcp.json` à la racine du dépôt déclare le serveur `factures`. Lancer `claude`
+  dans le dossier du projet, accepter le serveur, puis poser une question, par exemple « Quel est le
+  montant TTC des factures en retard en 2025 ? ».
+- **Claude Desktop** : dans `~/Library/Application Support/Claude/claude_desktop_config.json` :
+  ```json
+  { "mcpServers": { "factures": {
+      "command": "uv",
+      "args": ["run", "--directory", "/chemin/absolu/vers/factures-ia", "factures-mcp"] } } }
+  ```
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
@@ -226,6 +282,6 @@ conteneur (`DATA_DIR=/data`), on relance `factures warehouse` et les référence
 - [x] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
 - [x] Étape 5 — Évaluation de l'OCR
 - [x] Étape 6 — Entrepôt de données
-- [ ] Étape 7 — Serveur MCP
+- [x] Étape 7 — Serveur MCP
 - [ ] Étape 8 — Agent (LLM interchangeable)
 - [ ] Étape 9 — Industrialisation
