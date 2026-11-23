@@ -1,6 +1,6 @@
 # De la facture scannée à l'agent IA
 
-**Rapport de projet — MLOps (S9)** · Auteur(s) : _à compléter_ · 23 novembre 2026  
+**Rapport de projet (S9)** · Auteur(s) : _à compléter_ · 23 novembre 2026  
 Dépôt : `factures-ia` — lancement : `README.md` · détails techniques : `docs/`, `eval/`
 
 ## 1. Objectif et résultat
