@@ -126,7 +126,8 @@ def cmd_silver(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     cmd_fetch(args)
     cmd_bronze(args)
-    return cmd_silver(args)
+    cmd_silver(args)
+    return cmd_warehouse(args)
 
 
 def cmd_eval(args: argparse.Namespace) -> int:
@@ -156,6 +157,34 @@ def cmd_eval(args: argparse.Namespace) -> int:
         out.write_text(f"# Résultats de l'évaluation OCR\n\nCommande : `uv run factures eval "
                        f"--sides {' '.join(map(str, args.sides))}{' --synthetic' if args.synthetic else ''}`\n\n{text}")
         print(f"\n→ {out}", file=sys.stderr)
+    return 0
+
+
+def cmd_warehouse(args: argparse.Namespace) -> int:
+    from factures.warehouse import build_file
+
+    path = config.DATA_DIR / "warehouse.duckdb"
+    skipped = build_file(path)
+    print(f"Entrepôt (vues uniquement) → {path}")
+    if skipped:
+        print("Vues non créées (aucune donnée encore) : " + ", ".join(skipped))
+    return 0
+
+
+def cmd_sql(args: argparse.Namespace) -> int:
+    from factures.warehouse import connect
+
+    rel = connect().sql(args.query)
+    if rel is None:
+        return 0
+    if args.csv:
+        import csv as _csv
+
+        w = _csv.writer(sys.stdout)
+        w.writerow(rel.columns)
+        w.writerows(rel.fetchall())
+    else:
+        rel.show(max_width=200, max_rows=args.max_rows)
     return 0
 
 
@@ -214,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, func, help_ in (
         ("bronze", cmd_bronze, "Extrait le texte des PDF de data/landing vers la couche bronze (incrémental)"),
-        ("run", cmd_run, "fetch + bronze + silver"),
+        ("run", cmd_run, "fetch + bronze + silver + warehouse"),
     ):
         p = sub.add_parser(name, help=help_)
         p.add_argument("--limit", type=int, help="Traiter au plus N nouveaux documents")
@@ -232,6 +261,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--out", default="results.md", help="Fichier de résultats (dans eval/), vide pour ne pas écrire")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("warehouse", help="Génère data/warehouse.duckdb (vues SQL sur bronze/silver) pour DBeaver")
+    p.set_defaults(func=cmd_warehouse)
+
+    p = sub.add_parser("sql", help="Exécute une requête SQL sur l'entrepôt (bronze.*, silver.*)")
+    p.add_argument("query")
+    p.add_argument("--csv", action="store_true")
+    p.add_argument("--max-rows", type=int, default=50)
+    p.set_defaults(func=cmd_sql)
 
     p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
     p.set_defaults(func=cmd_status)

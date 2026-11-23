@@ -31,7 +31,11 @@ uv run factures ocr facture_A-2025-0003_scan.pdf --longest-side 1024 --save-imag
 uv run factures bronze --limit 5   # commencer petit
 uv run factures bronze             # tout le reste ; relancer n'ajoute rien et ne fait aucun appel OCR
 uv run factures silver             # 7. couche silver : parsing, typage, contrôles, quarantaine
-uv run factures run                # fetch + bronze + silver en une commande
+uv run factures run                # fetch + bronze + silver + warehouse en une commande
+
+# 9. Entrepôt SQL (vues DuckDB sur les Parquet)
+uv run factures warehouse          # génère data/warehouse.duckdb pour DBeaver
+uv run factures sql "SELECT status, count(*), sum(total_ttc) FROM silver.invoices GROUP BY 1"
 uv run factures status             # résumé landing / bronze / erreurs à retraiter
 
 # 8. Évaluer l'OCR champ par champ (vérité terrain + 3 résolutions + faux scans) → eval/results.md
@@ -178,6 +182,42 @@ Champs fragiles : les longues suites de chiffres (IBAN, SIRET, n° de TVA), les 
 structure du tableau. Champs robustes : le vocabulaire fermé et le total TTC. Les contrôles silver
 signalent ou rejettent 85 % des factures mal lues à 768 px.
 
+## Étape 6 — Entrepôt de données
+
+**Stockage** : les fichiers Parquet de `data/bronze` et `data/silver`, en un seul exemplaire.
+**Calcul** : DuckDB, qui lit ces fichiers à la demande. L'entrepôt ne contient que des **vues**
+(`bronze.documents`, `bronze.extraction_errors`, `silver.invoices`, `silver.invoice_lines`,
+`silver.quarantine`), commentées table par table et colonne par colonne. Aucune donnée n'est copiée.
+
+Pourquoi DuckDB : c'est un moteur analytique en colonnes, embarqué (pas de serveur à opérer),
+qui lit Parquet nativement, avec un typage `DECIMAL` / `DATE` exact. Il a un pilote DBeaver officiel
+et une API Python. À plus grande échelle, la même architecture passe sur S3 (DuckDB `httpfs`, voire
+Trino ou Spark) sans changer les fichiers.
+
+**Accès concurrents.** Un fichier `.duckdb` ouvert en écriture est verrouillé par son processus. Si
+tous les programmes partageaient ce fichier, il suffirait que DBeaver le garde ouvert pour bloquer
+le pipeline, le serveur MCP et l'agent. D'où deux accès séparés :
+- les **programmes** utilisent `warehouse.connect()` : une base **en mémoire**, propre au
+  processus, où les vues sont recréées au démarrage. Il n'y a aucun fichier partagé, donc aucun
+  verrou, et les lecteurs simultanés sont illimités. Parquet est immuable, et la silver est
+  remplacée par bascule de dossier : un lecteur ne voit jamais de fichier à moitié écrit ;
+- **DBeaver** ouvre `data/warehouse.duckdb`, généré par `factures warehouse` (environ 270 Ko de
+  vues, aucune donnée). Vérifié : pendant qu'un processus tient ce fichier en écriture,
+  `factures sql` et `factures silver` fonctionnent normalement.
+
+**Chemins valides partout.** Les vues pointent vers `DATA_DIR` résolu à la connexion (programmes) ou
+à la génération (fichier DBeaver). Rien n'est figé dans le dépôt : sur une autre machine ou dans un
+conteneur (`DATA_DIR=/data`), on relance `factures warehouse` et les références restent valides.
+
+### Consulter l'entrepôt avec DBeaver
+
+1. `uv run factures warehouse`
+2. Dans DBeaver : *Nouvelle connexion* → **DuckDB** (DBeaver télécharge le pilote au premier usage).
+3. *Path* : le chemin absolu de `data/warehouse.duckdb`, affiché par la commande.
+4. Recommandé : dans *Driver properties*, `access_mode = READ_ONLY`. Plusieurs DBeaver peuvent alors
+   ouvrir le fichier en même temps, et `factures warehouse` peut le régénérer.
+5. Les schémas `bronze` et `silver` apparaissent, avec les commentaires des vues et des colonnes.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
@@ -185,7 +225,7 @@ signalent ou rejettent 85 % des factures mal lues à 768 px.
 - [x] Étape 3 — Couche bronze (incrémentale, traçable)
 - [x] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
 - [x] Étape 5 — Évaluation de l'OCR
-- [ ] Étape 6 — Entrepôt de données
+- [x] Étape 6 — Entrepôt de données
 - [ ] Étape 7 — Serveur MCP
 - [ ] Étape 8 — Agent (LLM interchangeable)
 - [ ] Étape 9 — Industrialisation
