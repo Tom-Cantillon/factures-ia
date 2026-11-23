@@ -12,21 +12,31 @@ import markdown
 
 DOCS = Path(__file__).resolve().parent
 CSS = """
-@page { size: A4; margin: 15mm 15mm 14mm 15mm; }
-body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 9.6pt; line-height: 1.38; color: #1d1d1f; }
-h1 { font-size: 18pt; margin: 0 0 2pt; color: #0b3d62; }
-h2 { font-size: 12.5pt; color: #0b3d62; border-bottom: 1.5px solid #0b3d62; padding-bottom: 2pt; margin: 13pt 0 5pt; }
-p { margin: 4pt 0; text-align: justify; }
-ul, ol { margin: 3pt 0 3pt 16pt; padding: 0; } li { margin: 1.5pt 0; }
-table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 8.6pt; }
+@page { size: A4; margin: 17mm 18mm 16mm 18mm; }
+body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 10pt; line-height: 1.55; color: #1f2328; }
+h1 { font-size: 21pt; line-height: 1.15; margin: 0 0 4pt; color: #0b3d62; }
+.meta { color: #57606a; font-size: 9.5pt; margin: 0 0 12pt; text-align: left; }
+h2 { font-size: 13.5pt; color: #0b3d62; border-bottom: 1.5px solid #0b3d62; padding-bottom: 3pt; margin: 22pt 0 9pt; page-break-after: avoid; }
+h3 { font-size: 11pt; color: #0b3d62; margin: 14pt 0 5pt; page-break-after: avoid; }
+p { margin: 6pt 0; }
+ul, ol { margin: 5pt 0 7pt 18pt; padding: 0; } li { margin: 3.5pt 0; }
+li > ul { margin: 2pt 0 2pt 14pt; }
+table { border-collapse: collapse; width: 100%; margin: 9pt 0 11pt; font-size: 9pt; }
 tr { page-break-inside: avoid; }
-th, td { border: 1px solid #c8ccd2; padding: 2.5pt 5pt; vertical-align: top; }
-th { background: #eef3f8; text-align: left; }
-td:not(:first-child) { text-align: left; }
-code { font-family: "SF Mono", Menlo, monospace; font-size: 8.3pt; background: #f3f4f6; padding: 0 2pt; border-radius: 2pt; }
-pre { background: #f6f8fa; border: 1px solid #e1e4e8; padding: 6pt; font-size: 7.4pt; line-height: 1.3; overflow: hidden; page-break-inside: avoid; }
-pre code { background: none; padding: 0; font-size: 7.4pt; }
-strong { color: #111; }
+th, td { border: 1px solid #d0d7de; padding: 4.5pt 7pt; vertical-align: top; text-align: left; }
+th { background: #eef3f8; }
+code { font-family: "SF Mono", Menlo, monospace; font-size: 8.6pt; background: #f3f4f6; padding: 0 2.5pt; border-radius: 2pt; }
+pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4pt; padding: 9pt 10pt; margin: 8pt 0 10pt;
+      font-size: 8pt; line-height: 1.35; overflow: hidden; page-break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 8pt; }
+strong, b { color: #111; }
+.callout { background: #eef6f8; border-left: 3.5pt solid #0f6c7a; border-radius: 3pt; padding: 8pt 12pt; margin: 10pt 0 12pt;
+           page-break-inside: avoid; }
+.callout ul { margin: 4pt 0 0 16pt; } .callout li { margin: 2.5pt 0; }
+.figs { display: flex; gap: 12pt; margin: 12pt 0 6pt; page-break-inside: avoid; }
+.figs figure { margin: 0; flex: 1; min-width: 0; }
+.figs img { width: 100%; border: 1px solid #d0d7de; border-radius: 3pt; display: block; }
+figcaption { font-size: 8.5pt; color: #57606a; margin-top: 4pt; }
 """
 
 
