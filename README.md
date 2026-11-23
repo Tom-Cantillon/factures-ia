@@ -23,6 +23,10 @@ uv run factures fetch
 uv run factures detect          # tableau lisible
 uv run factures detect --csv    # sortie CSV
 
+# 5. Envoyer une page au modèle d'OCR et afficher le texte reconnu (+ temps de traitement)
+uv run factures ocr facture_A-2025-0003_scan.pdf
+uv run factures ocr facture_A-2025-0003_scan.pdf --longest-side 1024 --save-image page.png
+
 # Tests
 uv run pytest
 ```
@@ -61,10 +65,21 @@ Le projet utilise Python 3.13 (fixé dans `.python-version`, uv l'installe autom
 | `tests/` | Tests automatisés |
 | `docs/` | Rapport et schémas |
 
+## Étape 2 — OCR avec LightOnOCR-3
+
+- `src/factures/ocr.py` définit une interface `OcrEngine` (PNG → texte). Le pipeline ne connaît que
+  cette interface. LightOnOCR-3 en est une implémentation, choisie par `OCR_ENGINE` (défaut
+  `lightonocr`). Changer de fournisseur revient à ajouter une classe, sans réécrire le reste.
+- La requête suit la fiche du modèle : image seule en PNG base64, plus grand côté 1540 px,
+  `temperature=0.2`, `top_p=0.9`, `max_tokens=4096`.
+- La clé d'API n'existe que dans `.env`, ignoré par Git.
+- Sortie : du markdown avec les tableaux en HTML. Environ 6 s par page.
+  Détails, mesures et compromis taille / vitesse : [docs/journal_ocr.md](docs/journal_ocr.md).
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
-- [ ] Étape 2 — Appel du modèle OCR LightOnOCR-3
+- [x] Étape 2 — Appel du modèle OCR LightOnOCR-3
 - [ ] Étape 3 — Couche bronze (incrémentale, traçable)
 - [ ] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
 - [ ] Étape 5 — Évaluation de l'OCR

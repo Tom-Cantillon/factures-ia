@@ -54,6 +54,33 @@ def cmd_detect(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ocr(args: argparse.Namespace) -> int:
+    import time
+
+    from factures.ocr import get_engine, render_page
+
+    path = Path(args.pdf)
+    if not path.exists():
+        path = config.LANDING_DIR / args.pdf
+    engine = get_engine()
+
+    t0 = time.perf_counter()
+    png = render_page(path, args.page, args.longest_side)
+    render_s = time.perf_counter() - t0
+    if args.save_image:
+        Path(args.save_image).write_bytes(png)
+
+    res = engine.ocr_png(png)
+    print(res.text)
+    print(
+        f"\n--- {path.name} p.{args.page} | {res.engine}/{res.model} | image {args.longest_side}px "
+        f"({len(png) // 1024} Ko) | rendu {render_s:.2f}s | OCR {res.seconds:.2f}s | "
+        f"tokens in/out {res.usage.get('prompt_tokens')}/{res.usage.get('completion_tokens')}",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="factures", description="Pipeline factures : S3 → OCR → bronze → silver")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -65,6 +92,13 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("detect", help="Indique pour chaque PDF s'il est « texte » ou « image » (OCR nécessaire)")
     p.add_argument("--csv", action="store_true", help="Sortie CSV sur stdout")
     p.set_defaults(func=cmd_detect)
+
+    p = sub.add_parser("ocr", help="Envoie une page de PDF au modèle d'OCR et affiche le texte reconnu")
+    p.add_argument("pdf", help="Chemin du PDF, ou nom d'un fichier de data/landing")
+    p.add_argument("--page", type=int, default=0, help="Numéro de page (0 = première)")
+    p.add_argument("--longest-side", type=int, default=1540, help="Plus grand côté de l'image envoyée, en pixels")
+    p.add_argument("--save-image", metavar="PNG", help="Enregistre l'image envoyée au modèle")
+    p.set_defaults(func=cmd_ocr)
 
     args = parser.parse_args(argv)
     return args.func(args)
