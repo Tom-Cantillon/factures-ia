@@ -34,6 +34,9 @@ uv run factures silver             # 7. couche silver : parsing, typage, contrô
 uv run factures run                # fetch + bronze + silver en une commande
 uv run factures status             # résumé landing / bronze / erreurs à retraiter
 
+# 8. Évaluer l'OCR champ par champ (vérité terrain + 3 résolutions + faux scans) → eval/results.md
+uv run factures eval --sides 512 768 1540 --synthetic
+
 # Tests
 uv run pytest
 ```
@@ -157,13 +160,31 @@ La facture signalée, `V-2025-0001`, porte sur le document lui-même un TTC de 9
 HT 148,26 € + TVA 29,65 €. C'est vérifié sur l'image : c'est une anomalie du document, pas une
 erreur d'OCR.
 
+## Étape 5 — Qualité de l'OCR
+
+Méthode, résultats complets et analyse : [eval/README.md](eval/README.md).
+
+- **Vérité terrain réelle** : 20 scans tirés au sort, répartis entre les 8 fournisseurs, vérifiés à
+  la main champ par champ sur l'image (`eval/ground_truth.json`).
+- **Vérité terrain synthétique** : les 50 PDF natifs rendus en image puis dégradés comme un scan. Leur
+  couche texte donne une vérité exacte, gratuite et indépendante de l'OCR.
+
+| Facture 100 % exacte | 512 px | 768 px | **1540 px** |
+|---|---:|---:|---:|
+| Scans réels (n = 20) | 0/20 | 18/20 | **20/20** |
+| Faux scans (n = 50) | 0/50 | 4/50 | **50/50** |
+
+Champs fragiles : les longues suites de chiffres (IBAN, SIRET, n° de TVA), les noms propres et la
+structure du tableau. Champs robustes : le vocabulaire fermé et le total TTC. Les contrôles silver
+signalent ou rejettent 85 % des factures mal lues à 768 px.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
 - [x] Étape 2 — Appel du modèle OCR LightOnOCR-3
 - [x] Étape 3 — Couche bronze (incrémentale, traçable)
 - [x] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
-- [ ] Étape 5 — Évaluation de l'OCR
+- [x] Étape 5 — Évaluation de l'OCR
 - [ ] Étape 6 — Entrepôt de données
 - [ ] Étape 7 — Serveur MCP
 - [ ] Étape 8 — Agent (LLM interchangeable)

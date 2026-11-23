@@ -1,0 +1,792 @@
+{
+ "_doc": "Vérité terrain : valeurs exactes lues sur l'image des scans. Méthode : eval/README.md. Seules les factures 'verified': true sont évaluées.",
+ "invoices": {
+  "facture_A-2025-0010_scan.pdf": {
+   "verified": true,
+   "invoice_number": "A-2025-0010",
+   "issue_date": "2025-06-01",
+   "due_date": "2025-06-16",
+   "supplier_name": "Aubry",
+   "supplier_siret": "77360260298050",
+   "supplier_vat_number": "FR09773602602",
+   "client_name": "Muller",
+   "client_siret": "44550229754599",
+   "category": "Conseil",
+   "status": "En retard",
+   "payment_method": "Carte bancaire",
+   "iban": "FR1578820812191361939909169",
+   "total_ht": "18496.2",
+   "total_tva": "3699.24",
+   "total_ttc": "22195.44",
+   "lines": [
+    {
+     "description": "Atelier de cadrage projet",
+     "quantity": "10",
+     "unit_price_ht": "1849.62",
+     "vat_rate": "20",
+     "line_total_ht": "18496.2"
+    }
+   ]
+  },
+  "facture_A-2026-0004_scan.pdf": {
+   "verified": true,
+   "invoice_number": "A-2026-0004",
+   "issue_date": "2026-03-23",
+   "due_date": "2026-04-07",
+   "supplier_name": "Aubry",
+   "supplier_siret": "77360260298050",
+   "supplier_vat_number": "FR09773602602",
+   "client_name": "Fleury",
+   "client_siret": "67468071585977",
+   "category": "Conseil",
+   "status": "En retard",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR1578820812191361939909169",
+   "total_ht": "10911.61",
+   "total_tva": "2182.32",
+   "total_ttc": "13093.93",
+   "lines": [
+    {
+     "description": "Formation DuckDB et Parquet",
+     "quantity": "5",
+     "unit_price_ht": "1271.02",
+     "vat_rate": "20",
+     "line_total_ht": "6355.1"
+    },
+    {
+     "description": "Journée de conseil data engineering",
+     "quantity": "7",
+     "unit_price_ht": "650.93",
+     "vat_rate": "20",
+     "line_total_ht": "4556.51"
+    }
+   ]
+  },
+  "facture_A-2026-0007_scan.pdf": {
+   "verified": true,
+   "invoice_number": "A-2026-0007",
+   "issue_date": "2026-05-23",
+   "due_date": "2026-07-07",
+   "supplier_name": "Aubry",
+   "supplier_siret": "77360260298050",
+   "supplier_vat_number": "FR09773602602",
+   "client_name": "Grondin Pinto et Fils",
+   "client_siret": "22196937164743",
+   "category": "Conseil",
+   "status": "Payée",
+   "payment_method": "Chèque",
+   "iban": "FR1578820812191361939909169",
+   "total_ht": "25113.14",
+   "total_tva": "5022.63",
+   "total_ttc": "30135.77",
+   "lines": [
+    {
+     "description": "Atelier de cadrage projet",
+     "quantity": "2",
+     "unit_price_ht": "1371.78",
+     "vat_rate": "20",
+     "line_total_ht": "2743.56"
+    },
+    {
+     "description": "Journée de conseil data engineering",
+     "quantity": "6",
+     "unit_price_ht": "713.76",
+     "vat_rate": "20",
+     "line_total_ht": "4282.56"
+    },
+    {
+     "description": "Formation DuckDB et Parquet",
+     "quantity": "7",
+     "unit_price_ht": "2583.86",
+     "vat_rate": "20",
+     "line_total_ht": "18087.02"
+    }
+   ]
+  },
+  "facture_BS-2025-0002_scan.pdf": {
+   "verified": true,
+   "invoice_number": "BS-2025-0002",
+   "issue_date": "2025-09-11",
+   "due_date": "2025-10-26",
+   "supplier_name": "Bernard SARL",
+   "supplier_siret": "48740164859826",
+   "supplier_vat_number": "FR20487401648",
+   "client_name": "Diallo Barbe S.A.R.L.",
+   "client_siret": "29413186741232",
+   "category": "Fournitures",
+   "status": "Payée",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR4545053315869232260256342",
+   "total_ht": "453.3",
+   "total_tva": "90.66",
+   "total_ttc": "543.96",
+   "lines": [
+    {
+     "description": "Lot de stylos bille bleus",
+     "quantity": "12",
+     "unit_price_ht": "4.71",
+     "vat_rate": "20",
+     "line_total_ht": "56.52"
+    },
+    {
+     "description": "Cartouche toner noir",
+     "quantity": "5",
+     "unit_price_ht": "72.51",
+     "vat_rate": "20",
+     "line_total_ht": "362.55"
+    },
+    {
+     "description": "Classeur à levier dos large",
+     "quantity": "9",
+     "unit_price_ht": "2.24",
+     "vat_rate": "20",
+     "line_total_ht": "20.16"
+    },
+    {
+     "description": "Ramette papier A4 500 feuilles",
+     "quantity": "3",
+     "unit_price_ht": "4.69",
+     "vat_rate": "20",
+     "line_total_ht": "14.07"
+    }
+   ]
+  },
+  "facture_BS-2026-0005_scan.pdf": {
+   "verified": true,
+   "invoice_number": "BS-2026-0005",
+   "issue_date": "2026-04-25",
+   "due_date": "2026-06-09",
+   "supplier_name": "Bernard SARL",
+   "supplier_siret": "48740164859826",
+   "supplier_vat_number": "FR20487401648",
+   "client_name": "Fernandes Grondin S.A.R.L.",
+   "client_siret": "14345581466909",
+   "category": "Fournitures",
+   "status": "En retard",
+   "payment_method": "Virement bancaire",
+   "iban": "FR4545053315869232260256342",
+   "total_ht": "764.9",
+   "total_tva": "152.98",
+   "total_ttc": "917.88",
+   "lines": [
+    {
+     "description": "Classeur à levier dos large",
+     "quantity": "2",
+     "unit_price_ht": "3.79",
+     "vat_rate": "20",
+     "line_total_ht": "7.58"
+    },
+    {
+     "description": "Cartouche toner noir",
+     "quantity": "7",
+     "unit_price_ht": "100.42",
+     "vat_rate": "20",
+     "line_total_ht": "702.94"
+    },
+    {
+     "description": "Lot de stylos bille bleus",
+     "quantity": "10",
+     "unit_price_ht": "4.5",
+     "vat_rate": "20",
+     "line_total_ht": "45"
+    },
+    {
+     "description": "Ramette papier A4 500 feuilles",
+     "quantity": "2",
+     "unit_price_ht": "4.69",
+     "vat_rate": "20",
+     "line_total_ht": "9.38"
+    }
+   ]
+  },
+  "facture_BS-2026-0007_scan.pdf": {
+   "verified": true,
+   "invoice_number": "BS-2026-0007",
+   "issue_date": "2026-11-18",
+   "due_date": "2027-01-17",
+   "supplier_name": "Bernard SARL",
+   "supplier_siret": "48740164859826",
+   "supplier_vat_number": "FR20487401648",
+   "client_name": "Jacob Aubert S.A.S.",
+   "client_siret": "48467737249972",
+   "category": "Fournitures",
+   "status": "Payée",
+   "payment_method": "Virement bancaire",
+   "iban": "FR4545053315869232260256342",
+   "total_ht": "246.92",
+   "total_tva": "49.38",
+   "total_ttc": "296.3",
+   "lines": [
+    {
+     "description": "Cartouche toner noir",
+     "quantity": "2",
+     "unit_price_ht": "107.36",
+     "vat_rate": "20",
+     "line_total_ht": "214.72"
+    },
+    {
+     "description": "Classeur à levier dos large",
+     "quantity": "10",
+     "unit_price_ht": "3.22",
+     "vat_rate": "20",
+     "line_total_ht": "32.2"
+    }
+   ]
+  },
+  "facture_C-2025-0011_scan.pdf": {
+   "verified": true,
+   "invoice_number": "C-2025-0011",
+   "issue_date": "2025-01-15",
+   "due_date": "2025-03-01",
+   "supplier_name": "Chevalier",
+   "supplier_siret": "49593103241928",
+   "supplier_vat_number": "FR32495931032",
+   "client_name": "Mace S.A.",
+   "client_siret": "89517187457809",
+   "category": "Maintenance",
+   "status": "Payée",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR5476483503056413953767242",
+   "total_ht": "8806.99",
+   "total_tva": "1761.4",
+   "total_ttc": "10568.39",
+   "lines": [
+    {
+     "description": "Intervention technicien sur site",
+     "quantity": "11",
+     "unit_price_ht": "314.74",
+     "vat_rate": "20",
+     "line_total_ht": "3462.14"
+    },
+    {
+     "description": "Contrat de maintenance mensuel",
+     "quantity": "5",
+     "unit_price_ht": "629.96",
+     "vat_rate": "20",
+     "line_total_ht": "3149.8"
+    },
+    {
+     "description": "Remplacement pièce détachée",
+     "quantity": "11",
+     "unit_price_ht": "199.55",
+     "vat_rate": "20",
+     "line_total_ht": "2195.05"
+    }
+   ]
+  },
+  "facture_C-2026-0007_scan.pdf": {
+   "verified": true,
+   "invoice_number": "C-2026-0007",
+   "issue_date": "2026-05-19",
+   "due_date": "2026-06-03",
+   "supplier_name": "Chevalier",
+   "supplier_siret": "49593103241928",
+   "supplier_vat_number": "FR32495931032",
+   "client_name": "Mace S.A.",
+   "client_siret": "89517187457809",
+   "category": "Maintenance",
+   "status": "En attente",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR5476483503056413953767242",
+   "total_ht": "2549.56",
+   "total_tva": "509.91",
+   "total_ttc": "3059.47",
+   "lines": [
+    {
+     "description": "Remplacement pièce détachée",
+     "quantity": "3",
+     "unit_price_ht": "176.95",
+     "vat_rate": "20",
+     "line_total_ht": "530.85"
+    },
+    {
+     "description": "Intervention technicien sur site",
+     "quantity": "5",
+     "unit_price_ht": "142.15",
+     "vat_rate": "20",
+     "line_total_ht": "710.75"
+    },
+    {
+     "description": "Contrat de maintenance mensuel",
+     "quantity": "4",
+     "unit_price_ht": "326.99",
+     "vat_rate": "20",
+     "line_total_ht": "1307.96"
+    }
+   ]
+  },
+  "facture_C-2026-0014_scan.pdf": {
+   "verified": true,
+   "invoice_number": "C-2026-0014",
+   "issue_date": "2026-03-30",
+   "due_date": "2026-05-29",
+   "supplier_name": "Chevalier",
+   "supplier_siret": "49593103241928",
+   "supplier_vat_number": "FR32495931032",
+   "client_name": "Diallo Barbe S.A.R.L.",
+   "client_siret": "29413186741232",
+   "category": "Maintenance",
+   "status": "En attente",
+   "payment_method": "Virement bancaire",
+   "iban": "FR5476483503056413953767242",
+   "total_ht": "3495.42",
+   "total_tva": "699.08",
+   "total_ttc": "4194.5",
+   "lines": [
+    {
+     "description": "Remplacement pièce détachée",
+     "quantity": "7",
+     "unit_price_ht": "82.8",
+     "vat_rate": "20",
+     "line_total_ht": "579.6"
+    },
+    {
+     "description": "Contrat de maintenance mensuel",
+     "quantity": "9",
+     "unit_price_ht": "323.98",
+     "vat_rate": "20",
+     "line_total_ht": "2915.82"
+    }
+   ]
+  },
+  "facture_GPE-2025-0009_scan.pdf": {
+   "verified": true,
+   "invoice_number": "GPE-2025-0009",
+   "issue_date": "2025-08-26",
+   "due_date": "2025-10-10",
+   "supplier_name": "Gimenez Payet et Fils",
+   "supplier_siret": "10518347967010",
+   "supplier_vat_number": "FR65105183479",
+   "client_name": "Martineau",
+   "client_siret": "56159514199468",
+   "category": "Informatique",
+   "status": "En retard",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR4513338726247317810801326",
+   "total_ht": "14942.17",
+   "total_tva": "2988.43",
+   "total_ttc": "17930.6",
+   "lines": [
+    {
+     "description": "Station d'accueil USB-C",
+     "quantity": "4",
+     "unit_price_ht": "181.39",
+     "vat_rate": "20",
+     "line_total_ht": "725.56"
+    },
+    {
+     "description": "Ordinateur portable Pro 14 pouces",
+     "quantity": "11",
+     "unit_price_ht": "1252.87",
+     "vat_rate": "20",
+     "line_total_ht": "13781.57"
+    },
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "4",
+     "unit_price_ht": "108.76",
+     "vat_rate": "20",
+     "line_total_ht": "435.04"
+    }
+   ]
+  },
+  "facture_GPE-2026-0001_scan.pdf": {
+   "verified": true,
+   "invoice_number": "GPE-2026-0001",
+   "issue_date": "2026-10-13",
+   "due_date": "2026-11-27",
+   "supplier_name": "Gimenez Payet et Fils",
+   "supplier_siret": "10518347967010",
+   "supplier_vat_number": "FR65105183479",
+   "client_name": "Foucher",
+   "client_siret": "42104709324745",
+   "category": "Informatique",
+   "status": "Payée",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR4513338726247317810801326",
+   "total_ht": "2590.8",
+   "total_tva": "518.16",
+   "total_ttc": "3108.96",
+   "lines": [
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "4",
+     "unit_price_ht": "125.91",
+     "vat_rate": "20",
+     "line_total_ht": "503.64"
+    },
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "12",
+     "unit_price_ht": "173.93",
+     "vat_rate": "20",
+     "line_total_ht": "2087.16"
+    }
+   ]
+  },
+  "facture_GPE-2026-0016_scan.pdf": {
+   "verified": true,
+   "invoice_number": "GPE-2026-0016",
+   "issue_date": "2026-04-08",
+   "due_date": "2026-04-23",
+   "supplier_name": "Gimenez Payet et Fils",
+   "supplier_siret": "10518347967010",
+   "supplier_vat_number": "FR65105183479",
+   "client_name": "Foucher",
+   "client_siret": "42104709324745",
+   "category": "Informatique",
+   "status": "Payée",
+   "payment_method": "Chèque",
+   "iban": "FR4513338726247317810801326",
+   "total_ht": "421.85",
+   "total_tva": "84.37",
+   "total_ttc": "506.22",
+   "lines": [
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "5",
+     "unit_price_ht": "84.37",
+     "vat_rate": "20",
+     "line_total_ht": "421.85"
+    }
+   ]
+  },
+  "facture_LG-2025-0005_scan.pdf": {
+   "verified": true,
+   "invoice_number": "LG-2025-0005",
+   "issue_date": "2025-09-05",
+   "due_date": "2025-11-04",
+   "supplier_name": "Le Gall",
+   "supplier_siret": "88095701482489",
+   "supplier_vat_number": "FR63880957014",
+   "client_name": "Lombard",
+   "client_siret": "20037917087083",
+   "category": "Informatique",
+   "status": "Payée",
+   "payment_method": "Carte bancaire",
+   "iban": "FR2383465787133150983930103",
+   "total_ht": "5819.19",
+   "total_tva": "1163.84",
+   "total_ttc": "6983.03",
+   "lines": [
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "11",
+     "unit_price_ht": "155.95",
+     "vat_rate": "20",
+     "line_total_ht": "1715.45"
+    },
+    {
+     "description": "Écran 27 pouces QHD",
+     "quantity": "8",
+     "unit_price_ht": "349.66",
+     "vat_rate": "20",
+     "line_total_ht": "2797.28"
+    },
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "2",
+     "unit_price_ht": "99.6",
+     "vat_rate": "20",
+     "line_total_ht": "199.2"
+    },
+    {
+     "description": "Station d'accueil USB-C",
+     "quantity": "7",
+     "unit_price_ht": "158.18",
+     "vat_rate": "20",
+     "line_total_ht": "1107.26"
+    }
+   ]
+  },
+  "facture_LG-2026-0009_scan.pdf": {
+   "verified": true,
+   "invoice_number": "LG-2026-0009",
+   "issue_date": "2026-03-06",
+   "due_date": "2026-05-05",
+   "supplier_name": "Le Gall",
+   "supplier_siret": "88095701482489",
+   "supplier_vat_number": "FR63880957014",
+   "client_name": "Mace S.A.",
+   "client_siret": "89517187457809",
+   "category": "Informatique",
+   "status": "En retard",
+   "payment_method": "Virement bancaire",
+   "iban": "FR2383465787133150983930103",
+   "total_ht": "4446.41",
+   "total_tva": "889.28",
+   "total_ttc": "5335.69",
+   "lines": [
+    {
+     "description": "Écran 27 pouces QHD",
+     "quantity": "12",
+     "unit_price_ht": "260.63",
+     "vat_rate": "20",
+     "line_total_ht": "3127.56"
+    },
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "10",
+     "unit_price_ht": "120.74",
+     "vat_rate": "20",
+     "line_total_ht": "1207.4"
+    },
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "1",
+     "unit_price_ht": "111.45",
+     "vat_rate": "20",
+     "line_total_ht": "111.45"
+    }
+   ]
+  },
+  "facture_MS-2025-0006_scan.pdf": {
+   "verified": true,
+   "invoice_number": "MS-2025-0006",
+   "issue_date": "2025-09-08",
+   "due_date": "2025-11-07",
+   "supplier_name": "Maury S.A.R.L.",
+   "supplier_siret": "10433218438637",
+   "supplier_vat_number": "FR94104332184",
+   "client_name": "Martineau",
+   "client_siret": "56159514199468",
+   "category": "Informatique",
+   "status": "En retard",
+   "payment_method": "Chèque",
+   "iban": "FR5002654235116155940781618",
+   "total_ht": "10630.54",
+   "total_tva": "2126.11",
+   "total_ttc": "12756.65",
+   "lines": [
+    {
+     "description": "Ordinateur portable Pro 14 pouces",
+     "quantity": "8",
+     "unit_price_ht": "1138.79",
+     "vat_rate": "20",
+     "line_total_ht": "9110.32"
+    },
+    {
+     "description": "Station d'accueil USB-C",
+     "quantity": "3",
+     "unit_price_ht": "154.61",
+     "vat_rate": "20",
+     "line_total_ht": "463.83"
+    },
+    {
+     "description": "Écran 27 pouces QHD",
+     "quantity": "1",
+     "unit_price_ht": "368.61",
+     "vat_rate": "20",
+     "line_total_ht": "368.61"
+    },
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "2",
+     "unit_price_ht": "161.27",
+     "vat_rate": "20",
+     "line_total_ht": "322.54"
+    },
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "4",
+     "unit_price_ht": "91.31",
+     "vat_rate": "20",
+     "line_total_ht": "365.24"
+    }
+   ]
+  },
+  "facture_MS-2026-0005_scan.pdf": {
+   "verified": true,
+   "invoice_number": "MS-2026-0005",
+   "issue_date": "2026-05-04",
+   "due_date": "2026-06-03",
+   "supplier_name": "Maury S.A.R.L.",
+   "supplier_siret": "10433218438637",
+   "supplier_vat_number": "FR94104332184",
+   "client_name": "Pereira",
+   "client_siret": "45271111204945",
+   "category": "Informatique",
+   "status": "Payée",
+   "payment_method": "Virement bancaire",
+   "iban": "FR5002654235116155940781618",
+   "total_ht": "334.22",
+   "total_tva": "66.84",
+   "total_ttc": "401.06",
+   "lines": [
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "2",
+     "unit_price_ht": "167.11",
+     "vat_rate": "20",
+     "line_total_ht": "334.22"
+    }
+   ]
+  },
+  "facture_P-2025-0008_scan.pdf": {
+   "verified": true,
+   "invoice_number": "P-2025-0008",
+   "issue_date": "2025-11-17",
+   "due_date": "2026-01-16",
+   "supplier_name": "Payet",
+   "supplier_siret": "98543534684251",
+   "supplier_vat_number": "FR35985435346",
+   "client_name": "Fernandes Grondin S.A.R.L.",
+   "client_siret": "14345581466909",
+   "category": "Informatique",
+   "status": "Payée",
+   "payment_method": "Carte bancaire",
+   "iban": "FR2142784980841241182449353",
+   "total_ht": "3702.19",
+   "total_tva": "740.44",
+   "total_ttc": "4442.63",
+   "lines": [
+    {
+     "description": "Licence logiciel bureautique annuelle",
+     "quantity": "11",
+     "unit_price_ht": "143.61",
+     "vat_rate": "20",
+     "line_total_ht": "1579.71"
+    },
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "2",
+     "unit_price_ht": "106.3",
+     "vat_rate": "20",
+     "line_total_ht": "212.6"
+    },
+    {
+     "description": "Ordinateur portable Pro 14 pouces",
+     "quantity": "2",
+     "unit_price_ht": "954.94",
+     "vat_rate": "20",
+     "line_total_ht": "1909.88"
+    }
+   ]
+  },
+  "facture_P-2026-0006_scan.pdf": {
+   "verified": true,
+   "invoice_number": "P-2026-0006",
+   "issue_date": "2026-04-29",
+   "due_date": "2026-05-29",
+   "supplier_name": "Payet",
+   "supplier_siret": "98543534684251",
+   "supplier_vat_number": "FR35985435346",
+   "client_name": "Joly SA",
+   "client_siret": "85931746375869",
+   "category": "Informatique",
+   "status": "En retard",
+   "payment_method": "Carte bancaire",
+   "iban": "FR2142784980841241182449353",
+   "total_ht": "11037.97",
+   "total_tva": "2207.59",
+   "total_ttc": "13245.56",
+   "lines": [
+    {
+     "description": "Disque SSD externe 2 To",
+     "quantity": "10",
+     "unit_price_ht": "139.66",
+     "vat_rate": "20",
+     "line_total_ht": "1396.6"
+    },
+    {
+     "description": "Écran 27 pouces QHD",
+     "quantity": "3",
+     "unit_price_ht": "363.17",
+     "vat_rate": "20",
+     "line_total_ht": "1089.51"
+    },
+    {
+     "description": "Station d'accueil USB-C",
+     "quantity": "5",
+     "unit_price_ht": "166.27",
+     "vat_rate": "20",
+     "line_total_ht": "831.35"
+    },
+    {
+     "description": "Ordinateur portable Pro 14 pouces",
+     "quantity": "7",
+     "unit_price_ht": "1102.93",
+     "vat_rate": "20",
+     "line_total_ht": "7720.51"
+    }
+   ]
+  },
+  "facture_V-2026-0005_scan.pdf": {
+   "verified": true,
+   "invoice_number": "V-2026-0005",
+   "issue_date": "2026-08-28",
+   "due_date": "2026-10-12",
+   "supplier_name": "Vasseur",
+   "supplier_siret": "38849696066978",
+   "supplier_vat_number": "FR48388496960",
+   "client_name": "Muller Salmon S.A.S.",
+   "client_siret": "39005329684210",
+   "category": "Fournitures",
+   "status": "En attente",
+   "payment_method": "Virement bancaire",
+   "iban": "FR3801845146270482814893252",
+   "total_ht": "171.64",
+   "total_tva": "34.33",
+   "total_ttc": "205.97",
+   "lines": [
+    {
+     "description": "Cartouche toner noir",
+     "quantity": "2",
+     "unit_price_ht": "85.82",
+     "vat_rate": "20",
+     "line_total_ht": "171.64"
+    }
+   ]
+  },
+  "facture_V-2026-0010_scan.pdf": {
+   "verified": true,
+   "invoice_number": "V-2026-0010",
+   "issue_date": "2026-01-17",
+   "due_date": "2026-03-03",
+   "supplier_name": "Vasseur",
+   "supplier_siret": "38849696066978",
+   "supplier_vat_number": "FR48388496960",
+   "client_name": "Jacob Aubert S.A.S.",
+   "client_siret": "48467737249972",
+   "category": "Fournitures",
+   "status": "En retard",
+   "payment_method": "Prélèvement SEPA",
+   "iban": "FR3801845146270482814893252",
+   "total_ht": "285.38",
+   "total_tva": "57.08",
+   "total_ttc": "342.46",
+   "lines": [
+    {
+     "description": "Cartouche toner noir",
+     "quantity": "2",
+     "unit_price_ht": "72.08",
+     "vat_rate": "20",
+     "line_total_ht": "144.16"
+    },
+    {
+     "description": "Lot de stylos bille bleus",
+     "quantity": "9",
+     "unit_price_ht": "7.07",
+     "vat_rate": "20",
+     "line_total_ht": "63.63"
+    },
+    {
+     "description": "Ramette papier A4 500 feuilles",
+     "quantity": "5",
+     "unit_price_ht": "4.76",
+     "vat_rate": "20",
+     "line_total_ht": "23.8"
+    },
+    {
+     "description": "Classeur à levier dos large",
+     "quantity": "11",
+     "unit_price_ht": "4.89",
+     "vat_rate": "20",
+     "line_total_ht": "53.79"
+    }
+   ]
+  }
+ },
+ "_method": "Échantillon de 20 scans sur 50, tiré au sort (graine 42) et réparti entre les 8 fournisseurs. Pré-remplissage par la sortie silver (OCR 1540 px), puis vérification visuelle de chaque champ sur l'image rendue à 120-130 dpi, sans tenir compte de la valeur pré-remplie en cas de doute. Désaccords trouvés : 0. Contrôles indépendants : IBAN valides (clé mod 97), HT + TVA = TTC et somme des lignes cohérents sur les 20 factures.",
+ "_verified_on": "2026-11-23"
+}

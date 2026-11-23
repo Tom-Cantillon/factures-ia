@@ -129,6 +129,36 @@ def cmd_run(args: argparse.Namespace) -> int:
     return cmd_silver(args)
 
 
+def cmd_eval(args: argparse.Namespace) -> int:
+    from factures.evaluate import (EVAL_DIR, fields_from_silver, format_report, load_truth, run_ocr_setting,
+                                   score, synthetic_truth)
+
+    truth = load_truth()
+    engine = _cached_engine()()
+    results = [score("silver", fields_from_silver(sorted(truth)), truth, None)]
+    for side in args.sides:
+        print(f"OCR des {len(truth)} scans réels à {side} px…", file=sys.stderr)
+        results.append(run_ocr_setting(engine, truth, side, False, args.workers))
+    report = [format_report(results, f"Scans réels — {len(truth)} factures, vérité terrain vérifiée à la main")]
+
+    if args.synthetic:
+        st = synthetic_truth()
+        synth = []
+        for side in args.sides:
+            print(f"OCR des {len(st)} faux scans à {side} px…", file=sys.stderr)
+            synth.append(run_ocr_setting(engine, st, side, True, args.workers))
+        report.append(format_report(synth, f"Faux scans synthétiques — {len(st)} PDF natifs dégradés, vérité exacte"))
+
+    text = "\n".join(report)
+    print(text)
+    if args.out:
+        out = Path(args.out) if Path(args.out).is_absolute() else EVAL_DIR / args.out
+        out.write_text(f"# Résultats de l'évaluation OCR\n\nCommande : `uv run factures eval "
+                       f"--sides {' '.join(map(str, args.sides))}{' --synthetic' if args.synthetic else ''}`\n\n{text}")
+        print(f"\n→ {out}", file=sys.stderr)
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     import duckdb
 
@@ -195,6 +225,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("silver", help="Reconstruit la couche silver (parsing, typage, contrôles, quarantaine)")
     p.set_defaults(func=cmd_silver)
+
+    p = sub.add_parser("eval", help="Précision de l'OCR champ par champ contre la vérité terrain")
+    p.add_argument("--sides", type=int, nargs="+", default=[768, 1540], help="Résolutions comparées (px)")
+    p.add_argument("--synthetic", action="store_true", help="Ajoute le jeu de faux scans (PDF natifs dégradés)")
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--out", default="results.md", help="Fichier de résultats (dans eval/), vide pour ne pas écrire")
+    p.set_defaults(func=cmd_eval)
 
     p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
     p.set_defaults(func=cmd_status)
