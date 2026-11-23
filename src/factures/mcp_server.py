@@ -116,16 +116,27 @@ def _parse_date(name: str, value: str | None) -> date | None:
         raise ToolError(f"{name} = {value!r} n'est pas une date valide. Format attendu : AAAA-MM-JJ (ex. 2025-03-31).") from exc
 
 
-def _check_choice(name: str, value: str | None, allowed: list[str]) -> None:
-    if value is not None and value not in allowed:
-        raise ToolError(f"{name} = {value!r} n'existe pas. Valeurs possibles : {', '.join(allowed)}.")
+def _fold(s: str) -> str:
+    import unicodedata
+
+    return "".join(c for c in unicodedata.normalize("NFD", s.strip().lower()) if unicodedata.category(c) != "Mn")
+
+
+def _check_choice(name: str, value: str | None, allowed: list[str]) -> str | None:
+    """Valeur canonique d'une énumération, tolérante à la casse et aux accents ('en retard' → 'En retard')."""
+    if value is None:
+        return None
+    for a in allowed:
+        if _fold(a) == _fold(value):
+            return a
+    raise ToolError(f"{name} = {value!r} n'existe pas. Valeurs possibles : {', '.join(allowed)}.")
 
 
 def _where(supplier, client, status, category, quality_status, year, date_from, date_to) -> tuple[str, list]:
     """Clause WHERE paramétrée : les valeurs ne sont jamais insérées dans le texte SQL."""
-    _check_choice("status", status, STATUSES)
-    _check_choice("category", category, CATEGORIES)
-    _check_choice("quality_status", quality_status, QUALITY)
+    status = _check_choice("status", status, STATUSES)
+    category = _check_choice("category", category, CATEGORIES)
+    quality_status = _check_choice("quality_status", quality_status, QUALITY)
     d_from, d_to = _parse_date("date_from", date_from), _parse_date("date_to", date_to)
     conds, params = [], []
     if supplier:
@@ -317,7 +328,12 @@ def run_sql(
 
 def main() -> None:
     # Protocole stdio : stdout est réservé aux messages MCP, les journaux vont sur stderr.
-    logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    import os
+
+    level = os.getenv("FACTURES_MCP_LOG", "INFO").upper()
+    logging.basicConfig(stream=sys.stderr, level=level, format="%(asctime)s %(name)s %(message)s", force=True)
+    for name in ("mcp", "factures"):
+        logging.getLogger(name).setLevel(level)
     server.run("stdio")
 
 

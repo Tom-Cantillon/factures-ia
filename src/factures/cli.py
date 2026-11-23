@@ -274,6 +274,17 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
     p.set_defaults(func=cmd_status)
 
+    p = sub.add_parser("agent", help="Agent conversationnel (français) sur les factures, via le serveur MCP")
+    p.add_argument("--llm", help="Profil LLM (llm_profiles.toml) ; défaut : LLM_PROFILE puis `default`")
+    p.add_argument("-q", "--question", help="Pose une seule question puis quitte")
+    p.add_argument("--max-steps", type=int, default=8, help="Nombre maximal d'appels LLM par question")
+    p.set_defaults(func=lambda a: __import__("factures.agent", fromlist=["main"]).main(a.llm, a.question, a.max_steps))
+
+    p = sub.add_parser("agent-bench", help="Mêmes questions posées à plusieurs LLM, chiffres vérifiés par SQL")
+    p.add_argument("--llm", nargs="+", help="Profils à comparer (défaut : tous)")
+    p.add_argument("--out", default="agent_results.md", help="Fichier de résultats (dans eval/)")
+    p.set_defaults(func=lambda a: __import__("factures.agent_bench", fromlist=["main"]).main(a.llm, a.out))
+
     args = parser.parse_args(argv)
     return args.func(args)
 

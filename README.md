@@ -274,6 +274,68 @@ modifié.
       "args": ["run", "--directory", "/chemin/absolu/vers/factures-ia", "factures-mcp"] } } }
   ```
 
+## Étape 8 — Agent
+
+```bash
+uv run factures agent                                   # conversation (LLM par défaut : Gemma sur l'AI Gateway)
+uv run factures agent --llm ollama-ministral            # même agent, LLM local
+uv run factures agent -q "Quel est le montant TTC des factures en retard en 2025 ?"
+uv run factures agent-bench                             # mêmes questions sur tous les LLM → eval/agent_results.md
+```
+
+- **Uniquement les outils MCP.** L'agent lance le serveur MCP en sous-processus (stdio) et ne
+  connaît que ses 5 outils : il n'a accès ni à DuckDB ni aux fichiers.
+- **LLM interchangeable par configuration.** `llm_profiles.toml` déclare les profils (URL, modèle,
+  variable d'environnement de la clé). On choisit avec `--llm`, avec `LLM_PROFILE` dans `.env`, ou
+  pendant la conversation avec `/llm <profil>`. Tous parlent l'API « chat completions » avec appel
+  d'outils, standard de fait (vLLM, Ollama, LM Studio, OpenAI, Mistral…). Ajouter un LLM revient à
+  ajouter un bloc dans le fichier, sans toucher au code. Profils fournis : `hyperfluid-gemma`
+  (défaut), `hyperfluid-granite`, `hyperfluid-nemotron` (AI Gateway Hyperfluid, même clé que
+  l'OCR), et `ollama-ministral` (local).
+- **Transparence.** Pour chaque étape, l'agent affiche l'outil appelé, ses arguments, le SQL exécuté
+  avec ses paramètres et un aperçu du résultat, puis la réponse avec le modèle, le nombre d'appels et
+  la durée.
+- **Robustesse.** L'historique est conservé entre les questions (`/reset` pour l'effacer). La boucle
+  est limitée à 8 appels au LLM par question. Les erreurs d'outil et le JSON invalide sont renvoyés
+  au LLM pour qu'il se corrige. Si le LLM est injoignable, le tour est annulé proprement. On sort
+  avec `/quit`, Ctrl-D ou Ctrl-C (la connexion MCP est fermée). Les jetons de contrôle laissés par
+  certains modèles (`<|channel>thought…` de Gemma) sont retirés.
+- **Ne pas inventer de chiffres.** Le prompt système impose que tout chiffre vienne d'un résultat
+  d'outil, recopié tel quel, et interdit de calculer de tête. Le serveur fait les calculs en SQL
+  (`invoice_totals`) et renvoie des montants exacts. La réponse cite sa source.
+
+### Mêmes questions, quatre LLM — chiffres vérifiés par SQL ([détail](eval/agent_results.md))
+
+Neuf questions, dont une qui fait appel à la mémoire de la conversation (« Et parmi elles… ») et
+deux sans outil dédié, qui obligent le modèle à écrire son propre SQL. La bonne réponse est calculée
+par une requête SQL directe sur l'entrepôt, indépendamment de l'agent.
+
+| | Gemma 4 12B (hébergé) | Granite 4.2 8B (hébergé) | Nemotron Bolt E4B (hébergé) | Ministral 3 8B (local, Ollama) |
+|---|---:|---:|---:|---:|
+| 7 questions couvertes par un outil | 7/7 | 7/7 | 7/7 | 7/7 |
+| 2 questions demandant du SQL libre | 2/2 | 2/2 | 0/2 (refus) | 0/2 (hors sujet) |
+| Temps total (9 questions) | 26 s | 28 s | 14 s | 92 s |
+
+Observations :
+- **Avec des outils dédiés, même un petit modèle suffit.** Les 4 modèles ont tout juste sur les
+  7 questions courantes, mémoire de conversation comprise. Les outils métier, des descriptions
+  précises et des filtres tolérants (`en retard` est accepté pour `En retard`) déplacent la
+  difficulté du LLM vers le serveur.
+- **Le SQL libre sépare les modèles.** Gemma et Granite enchaînent correctement `describe_schema`,
+  puis `run_sql` avec agrégation sur `invoice_lines`. Nemotron, le plus petit, ne pense pas à
+  `run_sql` et répond honnêtement qu'aucun outil ne convient. Ministral répond à une autre question
+  (factures au lieu d'articles, « toner noir » pris pour un fournisseur). C'est le cas le plus
+  dangereux : la réponse a l'air sérieuse. **Aucun modèle n'a inventé de chiffre.**
+- **Vitesse.** Le modèle local, sur le Mac, est environ 4 à 15 fois plus lent selon les questions
+  (de 6 à 146 s observés). La latence grandit avec l'historique de la conversation. Les modèles
+  hébergés sur GPU répondent en 1 à 5 s.
+- **Fiabilité de l'infrastructure.** Pendant un passage, la passerelle a renvoyé des erreurs de
+  connexion. L'agent les a affichées et a annulé le tour, sans planter. Un second passage complet a
+  donné les résultats ci-dessus.
+- **Vérifier le vérificateur.** Le premier correcteur automatique comptait faux « 229,000 unités »
+  (quantité `DECIMAL(14,3)` lue comme 229 000) et comparait un flottant à un décimal. Les réponses de
+  l'agent étaient justes : c'est le contrôle qui a été corrigé.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
@@ -283,5 +345,5 @@ modifié.
 - [x] Étape 5 — Évaluation de l'OCR
 - [x] Étape 6 — Entrepôt de données
 - [x] Étape 7 — Serveur MCP
-- [ ] Étape 8 — Agent (LLM interchangeable)
+- [x] Étape 8 — Agent (LLM interchangeable)
 - [ ] Étape 9 — Industrialisation

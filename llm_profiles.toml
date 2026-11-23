@@ -1,0 +1,33 @@
+# Profils LLM de l'agent. On choisit le profil sans changer le code :
+#   uv run factures agent --llm ollama-ministral      (option)
+#   LLM_PROFILE=hyperfluid-granite uv run factures agent   (variable d'environnement / .env)
+#
+# Tous les profils parlent l'API « chat completions » compatible OpenAI, avec appel d'outils :
+# vLLM (AI Gateway Hyperfluid), Ollama, LM Studio, OpenAI, Mistral… Ajouter un LLM = ajouter un bloc.
+# Aucune clé ici : `api_key_env` donne le nom des variables d'environnement à lire (la 1re non vide).
+
+default = "hyperfluid-gemma"
+
+[profiles.hyperfluid-gemma]
+description = "Gemma 4 12B hébergé sur l'AI Gateway Hyperfluid (vLLM, GPU)"
+base_url = "https://llm.hyperfluid.cloud/v1/organizations/ebc6b7a8-9ecd-4d3d-bafc-fef40ebe986f/shared-models/gemma-4-12b/v1"
+model = "gemma-4-12b"
+api_key_env = ["LLM_API_KEY", "OCR_API_KEY"]
+
+[profiles.hyperfluid-granite]
+description = "IBM Granite 4.2 8B hébergé sur l'AI Gateway Hyperfluid"
+base_url = "https://llm.hyperfluid.cloud/v1/organizations/ebc6b7a8-9ecd-4d3d-bafc-fef40ebe986f/shared-models/granite-4-2-8b/v1"
+model = "granite-4-2-8b"
+api_key_env = ["LLM_API_KEY", "OCR_API_KEY"]
+
+[profiles.hyperfluid-nemotron]
+description = "NVIDIA Nemotron Bolt E4B hébergé sur l'AI Gateway Hyperfluid"
+base_url = "https://llm.hyperfluid.cloud/v1/organizations/ebc6b7a8-9ecd-4d3d-bafc-fef40ebe986f/shared-models/nemotron-bolt-e4b/v1"
+model = "nemotron-bolt-e4b"
+api_key_env = ["LLM_API_KEY", "OCR_API_KEY"]
+
+[profiles.ollama-ministral]
+description = "Ministral 3 8B en local via Ollama (ollama pull ministral-3:8b)"
+base_url = "http://localhost:11434/v1"
+model = "ministral-3:8b"
+api_key = "ollama"   # Ollama n'authentifie pas ; la bibliothèque client exige une valeur
