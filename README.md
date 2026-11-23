@@ -30,7 +30,8 @@ uv run factures ocr facture_A-2025-0003_scan.pdf --longest-side 1024 --save-imag
 # 6. Couche bronze : extraire le texte de tous les PDF (OCR seulement pour les scans)
 uv run factures bronze --limit 5   # commencer petit
 uv run factures bronze             # tout le reste ; relancer n'ajoute rien et ne fait aucun appel OCR
-uv run factures run                # fetch + bronze en une commande
+uv run factures silver             # 7. couche silver : parsing, typage, contrôles, quarantaine
+uv run factures run                # fetch + bronze + silver en une commande
 uv run factures status             # résumé landing / bronze / erreurs à retraiter
 
 # Tests
@@ -110,12 +111,58 @@ Mesures sur le jeu complet :
 - Panne simulée (`OCR_BASE_URL` injoignable) : les PDF texte passent, les scans sont journalisés, et le
   run suivant les rattrape.
 
+## Étape 4 — Couche silver
+
+Tables (`data/silver/<table>/data.parquet`), entièrement recalculées depuis la bronze à chaque
+`factures silver`. Le calcul est déterministe, prend moins d'une seconde et n'appelle pas l'OCR.
+L'écriture passe par un dossier temporaire puis une bascule, si bien qu'un lecteur ne voit jamais
+une silver à moitié écrite.
+
+| Table | Contenu |
+|---|---|
+| `invoices` | une ligne par facture : numéro, dates (`DATE`), fournisseur, client, SIRET, catégorie, statut, paiement, IBAN, totaux HT / TVA / TTC en `DECIMAL(14,2)`, `quality_status`, `quality_flags`, `quality_details`, lien vers la bronze (`doc_id`, fichier, URI S3, méthode, `bronze_run_id`) |
+| `invoice_lines` | une ligne par ligne de facture : désignation, quantité, PU HT, taux de TVA, total HT |
+| `quarantine` | une ligne par document rejeté : `reason_codes`, `reason_details`, `duplicate_of` |
+
+**Un parseur pour deux formes de texte.** Le texte natif donne une valeur par ligne. L'OCR donne du
+markdown, avec des tableaux HTML et des totaux tantôt en lignes `**Total HT** …`, tantôt dans un
+tableau. `parser.to_lines` normalise les deux formes en un même flux de lignes (une cellule ou un
+« libellé : valeur » par ligne), puis un seul parseur le lit. Sur les 100 factures : 0 champ manquant.
+
+**Montants en `Decimal`, jamais en `float`.** Un flottant binaire ne représente pas 0,10 exactement :
+les sommes dérivent et les comparaisons au centime échouent. Les montants sont stockés en
+`DECIMAL(14,2)` dans Parquet et dans DuckDB.
+
+**Rejetée ou signalée ?**
+
+| | Effet | Règles |
+|---|---|---|
+| **Rejet** → `quarantine` | la facture n'entre pas dans `invoices` | `CHAMP_MANQUANT` (numéro, fournisseur, client, date d'émission, TTC), `FORMAT_INVALIDE` (date ou TTC illisible), `DOUBLON` (même SIRET fournisseur + numéro déjà retenu ; la première ingérée est gardée) |
+| **Signalement** → `quality_status = 'signalee'` | la facture est gardée, avec la liste des anomalies | `TTC_INCOHERENT` (HT + TVA ≠ TTC), `SOMME_LIGNES_HT`, `LIGNE_CALCUL` (qté × PU ≠ total), `TVA_INCOHERENTE`, `ECHEANCE_AVANT_EMISSION`, `IBAN_INVALIDE` (clé mod 97), `SIRET_INVALIDE` (14 chiffres), `VALEUR_INCONNUE`, `CHAMP_ILLISIBLE`, `LIGNE_ILLISIBLE`, `AUCUNE_LIGNE` |
+
+On rejette ce qui n'est pas exploitable ou ce qui fausserait les comptes (un doublon compté deux
+fois). On signale ce qui est exploitable mais suspect. **Rien n'est corrigé automatiquement** : un
+montant « corrigé » par calcul ressemble à une donnée vraie mais n'en est pas une. Il masquerait
+l'erreur et pourrait conduire à payer un mauvais montant. La valeur lue est conservée, et un humain
+tranche.
+
+Choix lié au jeu de données : la **clé de Luhn des SIRET n'est pas exigée**. Les SIRET du jeu sont
+fictifs et seuls 14 % d'entre eux la respectent (11 fournisseurs et 3 clients sur 100 factures).
+L'exiger signalerait 100 % des factures et noierait les vraies anomalies. La fonction est fournie
+(`siret_luhn_ok`) pour des données réelles. La clé IBAN, elle, est valide sur 100/100 : elle est
+gardée, car elle détecte un chiffre mal lu par l'OCR.
+
+**Résultat sur les 100 factures : 99 valides, 1 signalée, 0 en quarantaine, 271 lignes.**
+La facture signalée, `V-2025-0001`, porte sur le document lui-même un TTC de 99 999,99 € pour
+HT 148,26 € + TVA 29,65 €. C'est vérifié sur l'image : c'est une anomalie du document, pas une
+erreur d'OCR.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
 - [x] Étape 2 — Appel du modèle OCR LightOnOCR-3
 - [x] Étape 3 — Couche bronze (incrémentale, traçable)
-- [ ] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
+- [x] Étape 4 — Couche silver (typage, contrôles qualité, quarantaine)
 - [ ] Étape 5 — Évaluation de l'OCR
 - [ ] Étape 6 — Entrepôt de données
 - [ ] Étape 7 — Serveur MCP

@@ -112,9 +112,21 @@ def cmd_bronze(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_silver(args: argparse.Namespace) -> int:
+    from factures.silver import build
+
+    s = build()
+    print(
+        f"silver : {s['invoices']} facture(s) ({s['valides']} valide(s), {s['signalees']} signalée(s)), "
+        f"{s['lines']} ligne(s), {s['quarantine']} en quarantaine → {config.SILVER_DIR}"
+    )
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     cmd_fetch(args)
-    return cmd_bronze(args)
+    cmd_bronze(args)
+    return cmd_silver(args)
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -172,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for name, func, help_ in (
         ("bronze", cmd_bronze, "Extrait le texte des PDF de data/landing vers la couche bronze (incrémental)"),
-        ("run", cmd_run, "fetch + bronze"),
+        ("run", cmd_run, "fetch + bronze + silver"),
     ):
         p = sub.add_parser(name, help=help_)
         p.add_argument("--limit", type=int, help="Traiter au plus N nouveaux documents")
@@ -180,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--longest-side", type=int, default=1540, help="Taille des images envoyées à l'OCR")
         p.add_argument("--bucket", default=config.S3_BUCKET)
         p.set_defaults(func=func)
+
+    p = sub.add_parser("silver", help="Reconstruit la couche silver (parsing, typage, contrôles, quarantaine)")
+    p.set_defaults(func=cmd_silver)
 
     p = sub.add_parser("status", help="Résumé de la zone d'arrivée et de la couche bronze")
     p.set_defaults(func=cmd_status)
