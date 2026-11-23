@@ -74,6 +74,10 @@ Dépôt : <code>github.com/Tom-Cantillon/factures-ia</code> · lancement : <code
 - L'entrepôt ne contient que des **vues** sur les Parquet : les données n'existent qu'en un exemplaire.
 - Chaque programme ouvre sa propre base DuckDB **en mémoire**. DBeaver ouvre un petit fichier de vues. Résultat : DBeaver ne bloque jamais le pipeline (vérifié).
 
+<div class="figs single">
+<figure><img src="img/dbeaver.jpg" alt="DBeaver sur l'entrepôt"><figcaption>DBeaver connecté à l'entrepôt en lecture seule (<code>access_mode = READ_ONLY</code>) : schémas bronze, silver et gold, et une requête sur <code>silver.invoices</code>.</figcaption></figure>
+</div>
+
 ## 3. Le serveur MCP
 
 - **7 outils** : lister, totaliser, détailler une facture, dépense mensuelle, encours, schéma, SQL libre.

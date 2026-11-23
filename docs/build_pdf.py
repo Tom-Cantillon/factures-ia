@@ -36,6 +36,7 @@ strong, b { color: #111; }
 .figs { display: flex; gap: 12pt; margin: 12pt 0 6pt; page-break-inside: avoid; }
 .figs figure { margin: 0; flex: 1; min-width: 0; }
 .figs img { width: 100%; border: 1px solid #d0d7de; border-radius: 3pt; display: block; }
+.figs.single figure { flex: 0 0 78%; margin: 0 auto; }
 figcaption { font-size: 8.5pt; color: #57606a; margin-top: 4pt; }
 """
 
