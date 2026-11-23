@@ -79,7 +79,8 @@ def load_profile(name: str | None = None, path: Path = PROFILES_PATH) -> LLMProf
         key = key or os.getenv(env)
     if not key:
         raise SystemExit(f"Profil {name} : aucune clé trouvée dans {p.get('api_key_env')} (voir .env.example).")
-    return LLMProfile(name=name, base_url=p["base_url"], model=p["model"], api_key=key,
+    base_url = os.getenv(p["base_url_env"]) if p.get("base_url_env") else None
+    return LLMProfile(name=name, base_url=base_url or p["base_url"], model=p["model"], api_key=key,
                       description=p.get("description", ""), temperature=p.get("temperature", 0.0))
 
 

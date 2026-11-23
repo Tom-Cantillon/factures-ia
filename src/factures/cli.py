@@ -188,6 +188,15 @@ def cmd_sql(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ui(args: argparse.Namespace) -> int:
+    import subprocess
+
+    app = Path(__file__).with_name("ui.py")
+    return subprocess.call([sys.executable, "-m", "streamlit", "run", str(app), "--server.address", args.host,
+                            "--server.port", str(args.port), "--browser.gatherUsageStats", "false",
+                            "--server.headless", "true"])
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     import duckdb
 
@@ -284,6 +293,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--llm", nargs="+", help="Profils à comparer (défaut : tous)")
     p.add_argument("--out", default="agent_results.md", help="Fichier de résultats (dans eval/)")
     p.set_defaults(func=lambda a: __import__("factures.agent_bench", fromlist=["main"]).main(a.llm, a.out))
+
+    p = sub.add_parser("ui", help="Interface web locale (Streamlit) : assistant, factures, qualité")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8501)
+    p.set_defaults(func=cmd_ui)
 
     args = parser.parse_args(argv)
     return args.func(args)

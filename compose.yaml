@@ -1,0 +1,45 @@
+# Pile locale « comme en production » : une image, trois rôles, un volume de données partagé.
+#   docker compose run --rm pipeline          # ingestion : fetch → bronze → silver → entrepôt
+#   docker compose up -d mcp ui               # serveur MCP HTTP partagé + interface web
+# Les secrets viennent de .env (jamais dans l'image ni dans le dépôt).
+
+x-app: &app
+  build: .
+  image: factures-ia:latest
+  env_file: .env
+  environment:
+    DATA_DIR: /data
+  volumes:
+    - ./data:/data
+
+services:
+  pipeline:
+    <<: *app
+    command: ["run"]
+    restart: "no"
+
+  mcp:
+    <<: *app
+    entrypoint: ["factures-mcp"]
+    environment:
+      DATA_DIR: /data
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8000"
+    ports:
+      - "127.0.0.1:8000:8000"   # exposé seulement sur la machine : pas d'authentification sur ce serveur de démo
+    read_only: true              # le serveur MCP n'écrit jamais : système de fichiers en lecture seule
+    volumes:
+      - ./data:/data:ro
+
+  ui:
+    <<: *app
+    command: ["ui", "--host", "0.0.0.0"]
+    environment:
+      DATA_DIR: /data
+      # Ollama tourne sur la machine hôte, pas dans le conteneur
+      OLLAMA_HOST_URL: http://host.docker.internal:11434/v1
+    ports:
+      - "127.0.0.1:8502:8501"   # 8501 souvent déjà pris en local
+    volumes:
+      - ./data:/data:ro

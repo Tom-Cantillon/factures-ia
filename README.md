@@ -336,6 +336,42 @@ Observations :
   (quantité `DECIMAL(14,3)` lue comme 229 000) et comparait un flottant à un décimal. Les réponses de
   l'agent étaient justes : c'est le contrôle qui a été corrigé.
 
+## Interface web locale
+
+```bash
+uv run factures ui            # → http://localhost:8501  (option --port si 8501 est pris)
+```
+
+L'interface (Streamlit) a trois onglets :
+- **💬 Assistant** : l'agent de l'étape 8 (même code, même serveur MCP), avec choix du LLM dans la
+  barre latérale. Sous chaque réponse, le détail des outils appelés, du SQL exécuté et des résultats.
+- **📄 Factures** : indicateurs, filtres (fournisseur, statut, catégorie, année), liste des factures,
+  montants par mois et détail d'une facture avec ses lignes.
+- **🩺 Qualité** : factures signalées, quarantaine, répartition texte / OCR, journal des erreurs
+  d'extraction.
+
+Tout est en lecture seule : l'assistant passe par le serveur MCP, les pages par des connexions DuckDB
+en mémoire.
+
+## Étape 9 — Industrialisation
+
+Proposition argumentée : [docs/INDUSTRIALISATION.md](docs/INDUSTRIALISATION.md). Elle couvre le
+dimensionnement, l'architecture cible, les priorités (sécurité, automatisation, montée en charge,
+tests, supervision, coûts) et la feuille de route.
+
+Partie implémentée :
+
+```bash
+docker compose run --rm pipeline     # pipeline complet en conteneur (secrets lus dans .env)
+docker compose up -d mcp ui          # serveur MCP HTTP (localhost:8000/mcp, lecture seule) + interface (localhost:8502)
+docker compose down
+```
+
+- `Dockerfile` : image unique, utilisateur non-root, aucun secret dans l'image, données en volume.
+- `compose.yaml` : trois rôles. Le conteneur `mcp` a un système de fichiers en lecture seule.
+- `.github/workflows/ci.yml` : tests et construction de l'image à chaque push.
+- Serveur MCP en HTTP (`MCP_TRANSPORT=http`) : un seul serveur partagé par plusieurs utilisateurs.
+
 ## Avancement
 
 - [x] Étape 1 — Récupération des factures et détection texte / image
@@ -346,4 +382,4 @@ Observations :
 - [x] Étape 6 — Entrepôt de données
 - [x] Étape 7 — Serveur MCP
 - [x] Étape 8 — Agent (LLM interchangeable)
-- [ ] Étape 9 — Industrialisation
+- [x] Étape 9 — Industrialisation (+ interface web locale)

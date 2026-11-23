@@ -29,5 +29,6 @@ api_key_env = ["LLM_API_KEY", "OCR_API_KEY"]
 [profiles.ollama-ministral]
 description = "Ministral 3 8B en local via Ollama (ollama pull ministral-3:8b)"
 base_url = "http://localhost:11434/v1"
+base_url_env = "OLLAMA_HOST_URL"   # surcharge éventuelle (ex. conteneur : http://host.docker.internal:11434/v1)
 model = "ministral-3:8b"
 api_key = "ollama"   # Ollama n'authentifie pas ; la bibliothèque client exige une valeur

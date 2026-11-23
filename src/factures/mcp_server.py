@@ -334,7 +334,12 @@ def main() -> None:
     logging.basicConfig(stream=sys.stderr, level=level, format="%(asctime)s %(name)s %(message)s", force=True)
     for name in ("mcp", "factures"):
         logging.getLogger(name).setLevel(level)
-    server.run("stdio")
+    # stdio (défaut) : un client local lance le serveur (Claude Code/Desktop, l'agent).
+    # http : un seul serveur partagé par plusieurs clients (déploiement, docker compose).
+    if os.getenv("MCP_TRANSPORT", "stdio") == "http":
+        server.run("streamable-http", host=os.getenv("MCP_HOST", "127.0.0.1"), port=int(os.getenv("MCP_PORT", "8000")))
+    else:
+        server.run("stdio")
 
 
 if __name__ == "__main__":

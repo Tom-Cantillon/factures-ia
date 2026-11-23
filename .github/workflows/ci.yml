@@ -1,0 +1,32 @@
+# Intégration continue : à chaque push / pull request, on installe l'environnement exact (uv.lock),
+# on lance toute la suite de tests (sans réseau ni secret : données de test générées), puis on
+# vérifie que l'image Docker se construit.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.2"
+          enable-cache: true
+      - name: Installer Python et les dépendances (versions figées)
+        run: uv sync --frozen
+      - name: Tests
+        run: uv run pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire l'image
+        run: docker build -t factures-ia:ci .
+      - name: Vérifier que l'image démarre
+        run: docker run --rm factures-ia:ci --help
